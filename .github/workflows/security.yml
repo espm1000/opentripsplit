@@ -6,12 +6,6 @@ on:
       - main
   pull_request:
   workflow_dispatch:
-    inputs:
-      run_canary_scans:
-        description: "enables scanning of scanner-canary module"
-        required: false
-        type: boolean
-        default: false
 
 permissions: {}
 
