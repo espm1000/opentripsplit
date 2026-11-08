@@ -1,0 +1,30 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false}'>
+<title>{{if .Title}}{{.Title}} · {{end}}OpenTripSplit</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+{{if .DevAuth}}<div class="dev-banner">Dev login is on (DEV_LOCAL_AUTH). Never enable it in production.</div>{{end}}
+<header class="top">
+  <a class="brand" href="/">OpenTripSplit</a>
+  {{with .User}}
+  <nav>
+    <a href="/groups">Groups</a>
+    {{if .IsAdmin}}<a href="/admin">Admin</a>{{end}}
+    {{if $.DevAuth}}<a href="/login?switch=1">Switch user</a>{{end}}
+    <a href="/account">{{.DisplayName}}</a>
+    <form method="post" action="/logout" class="inline"><button class="link">Log out</button></form>
+  </nav>
+  {{end}}
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>OpenTripSplit · <a href="https://github.com/espm1000/opentripsplit">open source (MIT)</a></footer>
+</body>
+</html>{{end}}

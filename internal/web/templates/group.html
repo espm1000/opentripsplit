@@ -1,0 +1,162 @@
+{{define "content"}}
+{{$g := .Group}}
+{{$archived := .Group.Archived}}
+<div class="title-row">
+  <h1>{{$g.Name}} <span class="muted small">{{$g.Currency}}</span>{{if $archived}} <span class="badge">Archived</span>{{end}}</h1>
+  <div class="actions">
+    {{if not $archived}}<a class="button" href="/groups/{{$g.ID}}/expenses/new">Add expense</a>{{end}}
+    <a class="button secondary" href="/groups/{{$g.ID}}/history">History</a>
+  </div>
+</div>
+{{if $archived}}<p class="notice">This group is archived. Everything is read-only{{if .IsOwner}}; you can unarchive it below{{end}}.</p>{{end}}
+
+<div class="columns">
+<section class="card">
+  <h2>Balances</h2>
+  <table>
+    {{range .Balances}}
+    <tr{{if not .Active}} class="muted"{{end}}>
+      <td>{{.Name}}{{if not .Active}} (left){{end}}</td>
+      <td class="num {{if gt .Amount 0}}pos{{else if lt .Amount 0}}neg{{end}}">
+        {{if gt .Amount 0}}is owed {{$.Money .Amount}}{{else if lt .Amount 0}}owes {{$.Money (abs .Amount)}}{{else}}settled{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+</section>
+
+<section class="card">
+  <h2>Settle up</h2>
+  {{if .SettleUp}}
+  <ul class="list">
+    {{range .SettleUp}}
+    <li>
+      {{$.Name .From}} pays {{$.Name .To}} <strong>{{$.Money .Amount}}</strong>
+      {{if .CanMark}}
+      <form method="post" action="/groups/{{$g.ID}}/settlements" class="inline">
+        <input type="hidden" name="from" value="{{.From}}">
+        <input type="hidden" name="to" value="{{.To}}">
+        <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
+        <button class="small">Mark paid</button>
+      </form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">Everyone is settled up.</p>
+  {{end}}
+</section>
+</div>
+
+<section class="card">
+  <h2>Expenses</h2>
+  {{if .Expenses}}
+  <table class="expenses">
+    <thead><tr><th>Date</th><th>What</th><th>Paid by</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>
+    {{range .Expenses}}
+    <tr>
+      <td>{{.SpentOn}}</td>
+      <td>{{.Description}}
+        <div class="muted small">{{.SplitType}}: {{range $i, $s := .Shares}}{{if $i}}, {{end}}{{$.Name $s.UserID}} {{$.Money $s.Amount}}{{end}}</div>
+      </td>
+      <td>{{$.Name .PayerID}}</td>
+      <td class="num">{{$.Money .Amount}}</td>
+      <td class="row-actions">
+        {{if .CanEdit}}
+        <a href="/groups/{{$g.ID}}/expenses/{{.ID}}/edit">Edit</a>
+        <form method="post" action="/groups/{{$g.ID}}/expenses/{{.ID}}/delete" class="inline"><button class="link danger">Delete</button></form>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No expenses yet.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2>Payments</h2>
+  {{if .Settlements}}
+  <ul class="list">
+    {{range .Settlements}}
+    <li>
+      {{$.Name .From}} paid {{$.Name .To}} <strong>{{$.Money .Amount}}</strong> <span class="muted small">{{date .CreatedAt}}</span>
+      {{if .CanDelete}}<form method="post" action="/groups/{{$g.ID}}/settlements/{{.ID}}/delete" class="inline"><button class="link danger">Delete</button></form>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">No payments recorded.</p>
+  {{end}}
+  {{if not $archived}}
+  <details>
+    <summary>Record a payment</summary>
+    <form method="post" action="/groups/{{$g.ID}}/settlements" class="grid">
+      <label>From <select name="from">{{range .Members}}<option value="{{.UserID}}"{{if eq .UserID $.Me.UserID}} selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label>To <select name="to">{{range .Members}}<option value="{{.UserID}}">{{.Name}}</option>{{end}}</select></label>
+      <label>Amount ({{$g.Currency}}) <input name="amount" inputmode="decimal" required autocomplete="off"></label>
+      <button>Record payment</button>
+    </form>
+  </details>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2>Members</h2>
+  <ul class="list">
+    {{range .Members}}
+    <li{{if not .Active}} class="muted"{{end}}>
+      {{.Name}}{{if eq .Role "owner"}} <span class="badge">owner</span>{{end}}{{if not .Active}} (left){{end}}
+      {{if and $.IsOwner .Active (ne .UserID $.Me.UserID) (not $archived)}}
+      <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/owner" class="inline"><button class="link">Make owner</button></form>
+      <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/remove" class="inline"><button class="link danger">Remove</button></form>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+  <p class="hint">Members can leave, or be removed, once their balance is zero.</p>
+  {{if and (not .IsOwner) (not $archived)}}
+  <form method="post" action="/groups/{{$g.ID}}/leave"><button class="secondary">Leave group</button></form>
+  {{end}}
+</section>
+
+{{if .IsOwner}}
+<section class="card">
+  <h2>Owner settings</h2>
+  {{if not $archived}}
+  <h3>Invite links</h3>
+  <form method="post" action="/groups/{{$g.ID}}/invites"><button>Create invite link</button></form>
+  {{if .Invites}}
+  <ul class="list">
+    {{range .Invites}}
+    <li>Link #{{.ID}} <span class="muted small">created {{date .CreatedAt}}, expires {{datetime .ExpiresAt}}</span>
+      <form method="post" action="/groups/{{$g.ID}}/invites/{{.ID}}/revoke" class="inline"><button class="link danger">Revoke</button></form>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+
+  {{if $.DevAuth}}
+  <h3>Dev tools</h3>
+  <form method="post" action="/groups/{{$g.ID}}/dev/add-users"><button class="secondary">Add Alice, Bob and Casey (dev users)</button></form>
+  {{end}}
+
+  <h3>Rename</h3>
+  <form method="post" action="/groups/{{$g.ID}}/rename" class="grid">
+    <label>Name <input name="name" value="{{$g.Name}}" maxlength="60" required></label>
+    <button>Rename</button>
+  </form>
+
+  <h3>Archive</h3>
+  <p class="hint">Archived groups are read-only but keep their full history.</p>
+  <form method="post" action="/groups/{{$g.ID}}/archive"><button class="secondary">Archive group</button></form>
+  {{else}}
+  <form method="post" action="/groups/{{$g.ID}}/unarchive"><button>Unarchive group</button></form>
+  {{end}}
+</section>
+{{end}}
+{{end}}

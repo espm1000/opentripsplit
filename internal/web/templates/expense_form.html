@@ -1,0 +1,26 @@
+{{define "content"}}
+<h1>{{if .ExpenseID}}Edit expense{{else}}Add expense{{end}} <span class="muted small">{{.Group.Name}}</span></h1>
+{{with .Error}}<p class="error">{{.}}</p>{{end}}
+<form method="post" action="{{.Action}}" class="card form">
+  <label>Description <input name="description" value="{{.Form.Description}}" maxlength="200" required placeholder="Dinner at the harbour"></label>
+  <div class="grid">
+    <label>Amount ({{.Group.Currency}}) <input name="amount" value="{{.Form.Amount}}" inputmode="decimal" required autocomplete="off"></label>
+    <label>Paid by
+      <select name="payer_id">
+        {{range .Form.Split.Members}}<option value="{{.UserID}}"{{if eq .UserID $.Form.PayerID}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    <label>Date <input type="date" name="spent_on" value="{{.Form.SpentOn}}" required></label>
+    <label>Split
+      <select name="split_type" hx-get="/groups/{{.Group.ID}}/split-fields" hx-target="#split-fields" hx-trigger="change">
+        {{range .SplitTypes}}<option value="{{.}}"{{if eq . $.Form.Split.Type}} selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </label>
+  </div>
+  <div id="split-fields">{{template "split_fields" .Form.Split}}</div>
+  <div class="actions">
+    <button>{{if .ExpenseID}}Save changes{{else}}Add expense{{end}}</button>
+    <a href="/groups/{{.Group.ID}}">Cancel</a>
+  </div>
+</form>
+{{end}}

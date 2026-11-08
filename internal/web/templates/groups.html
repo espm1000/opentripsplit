@@ -1,0 +1,35 @@
+{{define "content"}}
+<h1>Your groups</h1>
+{{if .Active}}
+<ul class="list">
+  {{range .Active}}
+  <li><a href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · created {{date .CreatedAt}}{{if eq .Role "owner"}} · owner{{end}}</span></li>
+  {{end}}
+</ul>
+{{else}}
+<p class="muted">No active groups yet. Create one below, or open an invite link from a friend.</p>
+{{end}}
+
+<section class="card">
+  <h2>New group</h2>
+  {{with .Error}}<p class="error">{{.}}</p>{{end}}
+  <form method="post" action="/groups" class="grid">
+    <label>Name <input name="name" value="{{.Name}}" maxlength="60" required placeholder="Lisbon 2026"></label>
+    <label>Currency
+      <select name="currency">
+        {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Currency}} selected{{end}}>{{.Code}}</option>{{end}}
+      </select>
+    </label>
+    <button>Create group</button>
+  </form>
+</section>
+
+{{if .Archived}}
+<h2>Archived</h2>
+<ul class="list">
+  {{range .Archived}}
+  <li><a href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · archived {{date .ArchivedAt}}</span></li>
+  {{end}}
+</ul>
+{{end}}
+{{end}}

@@ -31,3 +31,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# OpenTripSplit
+/opentripsplit
+*.db
+*.db-wal
+*.db-shm

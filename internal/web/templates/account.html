@@ -1,0 +1,36 @@
+{{define "content"}}
+<h1>Account</h1>
+{{with .Error}}<p class="error">{{.}}</p>{{end}}
+
+<section class="card">
+  <h2>Display name</h2>
+  <form method="post" action="/account/name" class="grid">
+    <label>Name <input name="display_name" value="{{.User.DisplayName}}" maxlength="60" required></label>
+    <button>Save</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Logins</h2>
+  <p class="hint">Link both providers so you can sign in either way without ending up with two accounts.</p>
+  <ul class="list">
+    {{range .Providers}}
+    <li>{{.Label}}: {{if .Linked}}linked{{else}}<a href="/auth/{{.Name}}/login?link=1">Link {{.Label}}</a>{{end}}</li>
+    {{end}}
+  </ul>
+</section>
+
+<section class="card">
+  <h2>What we store</h2>
+  <p>Your provider user ID(s) and display name, plus the groups, expenses and payments you take part in. No email, avatar, password or access token.</p>
+</section>
+
+<section class="card danger-zone">
+  <h2>Delete account</h2>
+  <p>Your logins are removed and you are signed out everywhere. In groups you were part of, you will show as “Former member” so balances still add up. If you own a group, ownership passes to the longest-standing member.</p>
+  <form method="post" action="/account/delete" class="grid">
+    <label>Type DELETE to confirm <input name="confirm" autocomplete="off" required></label>
+    <button class="danger">Delete my account</button>
+  </form>
+</section>
+{{end}}

@@ -1,0 +1,10 @@
+{{define "content"}}
+<h1>Admin</h1>
+{{if .Saved}}<p class="notice">Saved. Login providers are updated.</p>{{end}}
+{{with .Error}}<p class="error">{{.}}</p>{{end}}
+<form method="post" action="/admin/providers" class="card form">
+  <h2>Login providers</h2>
+  {{template "provider_fields" .Providers}}
+  <div class="actions"><button>Save</button></div>
+</form>
+{{end}}

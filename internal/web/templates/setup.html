@@ -1,0 +1,18 @@
+{{define "content"}}
+<h1>Set up OpenTripSplit</h1>
+<p>Friends log in with GitHub or Discord. Create an OAuth app with at least one of them, then enter its client ID and secret below.</p>
+<ul>
+  <li><strong>GitHub:</strong> Settings → Developer settings → OAuth Apps → New OAuth App.</li>
+  <li><strong>Discord:</strong> <a href="https://discord.com/developers/applications" rel="noreferrer">Developer Portal</a> → New Application → OAuth2 → Redirects.</li>
+</ul>
+{{with .Error}}<p class="error">{{.}}</p>{{end}}
+<form method="post" action="/setup" class="card form">
+  <label>Setup token
+    <input name="setup_token" autocomplete="off" required>
+  </label>
+  <p class="hint">The server prints this token in its log at startup (look for <code>setup_token=</code>). It proves you run this instance.</p>
+  {{template "provider_fields" .Providers}}
+  <div class="actions"><button>Save and log in</button></div>
+</form>
+<p class="hint">After saving, log in. That first login becomes the instance admin, who can change these settings later.</p>
+{{end}}

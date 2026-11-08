@@ -1,0 +1,36 @@
+{{define "content"}}
+<section class="card narrow">
+  <h1>Split trip costs with friends</h1>
+  <p>Log who paid for what, and see who owes whom when you settle up.</p>
+  {{if .Providers}}
+  <div class="stack">
+    {{range .Providers}}
+    <a class="button" href="/auth/{{.Name}}/login{{if $.Next}}?next={{$.Next}}{{end}}">Log in with {{.Label}}</a>
+    {{end}}
+  </div>
+  {{else if not .DevUsers}}
+  <p class="notice">This instance has no login method yet. If you run it, open <a href="/setup">the setup page</a> and enter the setup token from the server log.</p>
+  {{end}}
+  {{if .DevUsers}}
+  <div class="dev-login">
+    <h2>Dev login</h2>
+    <p class="hint">No OAuth app needed. Pick a test user, or type any name to log in as yourself.</p>
+    <div class="stack">
+      {{range .DevUsers}}
+      <form method="post" action="/dev/login">
+        <input type="hidden" name="user" value="{{.Key}}">
+        {{if $.Next}}<input type="hidden" name="next" value="{{$.Next}}">{{end}}
+        <button class="secondary wide">Log in as {{.Name}}</button>
+      </form>
+      {{end}}
+    </div>
+    <form method="post" action="/dev/login" class="grid">
+      {{if .Next}}<input type="hidden" name="next" value="{{.Next}}">{{end}}
+      <label>Name <input name="name" maxlength="60" required placeholder="Your name"></label>
+      <button>Log in</button>
+    </form>
+  </div>
+  {{end}}
+  <p class="hint">We store only your {{range $i, $p := .Providers}}{{if $i}}/{{end}}{{$p.Label}}{{end}} user ID and a display name. No email, no password, no avatar.</p>
+</section>
+{{end}}
