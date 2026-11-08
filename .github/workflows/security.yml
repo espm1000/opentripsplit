@@ -1,0 +1,129 @@
+name: Security Scans
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_canary_scans:
+        description: "enables scanning of scanner-canary module"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  govulncheck:
+    permissions:
+      contents: read
+    runs-on: k3s-runners
+    steps:
+      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          go-version-file: 'go.mod'
+          cache: false
+  gosec:
+    permissions:
+      contents: read
+      actions: read
+    runs-on: k3s-runners
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run Gosec
+        run: |
+          echo "Running go sec"
+          # Pinned to a master commit: v2.29.0 ships x/tools v0.49.0, which can't
+          # read Go 1.27 export data. Move to the next release once it's out.
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.29.1-0.20261019114157-bbd69e23f657
+          gosec -fmt sarif -out gosec_results.sarif ./...
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Artifact names must be unique per run, so include the matrix dir.
+          name: gosec_results.sarif
+          path: gosec_results.sarif
+  sbom-and-grype:
+    runs-on: k3s-runners
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: opentripsplit.json
+          artifact-name: opentripsplit.json
+      # upload_observations only imports vulnerabilities, so the SBOM needs upload_sbom.
+      - name: Send SBOM to SecObserve
+        if: ${{ !cancelled() && hashFiles('opentripsplit.json') != '' }}
+        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        with:
+          so_api_token: ${{ secrets.SO_API_TOKEN }}
+          so_file_name: opentripsplit.json
+          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
+          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
+          so_branch_name: ${{ github.head_ref || github.ref_name }}
+      - name: Scan SBOM
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: opentripsplit.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: cyclonedx-json
+          output-file: grype_repo_results.json
+      # SecObserve resolves observations missing from a re-upload with the same product, branch
+      # and file name. Keep this name distinct from build.yml's grype_results.json so the two
+      # scans don't resolve each other's findings.
+      - name: Send Grype results to SecObserve
+        if: ${{ !cancelled() && hashFiles('grype_repo_results.json') != '' }}
+        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        with:
+          so_api_token: ${{ secrets.SO_API_TOKEN }}
+          so_file_name: grype_repo_results.json
+          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
+          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
+          so_branch_name: ${{ github.head_ref || github.ref_name }}
+  trufflehog:
+    runs-on: k3s-runners
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # trufflehog scans base..head, which a shallow clone doesn't have
+      # Manual runs would otherwise scan all history, which includes an old test DATABASE_URL.
+      # Pass the default branch as a commit SHA: trufflehog scanned nothing when given "origin/main".
+      - name: Resolve scan range for manual runs
+        id: range
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          base=$(git rev-parse "origin/$DEFAULT_BRANCH")
+          echo "Scanning $base..$GITHUB_SHA"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+      - uses: trufflesecurity/trufflehog@ea68ca03c865c5f324e86e849ced20ed3cf9dbbb # v3.99.8
+        with:
+          base: ${{ steps.range.outputs.base }}
+          head: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
+          extra_args: --results=verified,unknown
