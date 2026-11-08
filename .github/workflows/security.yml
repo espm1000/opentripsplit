@@ -17,7 +17,7 @@ jobs:
   govulncheck:
     permissions:
       contents: read
-    runs-on: k3s-runners-ots-ots
+    runs-on: k3s-runners-ots
     steps:
       - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
         with:
@@ -27,7 +27,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    runs-on: k3s-runners-ots-ots
+    runs-on: k3s-runners-ots
     env:
       GO111MODULE: on
     steps:
@@ -53,7 +53,7 @@ jobs:
           name: gosec_results.sarif
           path: gosec_results.sarif
   sbom-and-grype:
-    runs-on: k3s-runners-ots-ots
+    runs-on: k3s-runners-ots
     permissions:
       actions: read
       contents: read
