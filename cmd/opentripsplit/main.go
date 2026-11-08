@@ -107,6 +107,7 @@ func purgeSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
 
 // healthcheck is for container HEALTHCHECK: distroless images have no shell
 // or curl, so the binary checks itself.
+// #nosec G704 -- False positive.  SSRF doesnt happen here as the URL is statically assigned and not exposed.
 func healthcheck() int {
 	addr := os.Getenv("LISTEN_ADDR")
 	if addr == "" {
