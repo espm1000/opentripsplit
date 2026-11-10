@@ -2,12 +2,9 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
-  ]
+  ],
   "customManagers": [
     {
-        // SecObserve tags are vYYYY_MM (occasionally vYYYY_MM_N). The github-actions manager's
-        // pin comment parser stops at "_", so it reads "# v2026_10" as "v2026", a tag that doesn't exist.
-        // The versioning regex also skips the stray v_2024_01 tag.
         "customType": "regex",
         "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
         "matchStrings": [
