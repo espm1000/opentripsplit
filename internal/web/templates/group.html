@@ -5,41 +5,46 @@
   <h1>{{$g.Name}} <span class="muted small">{{$g.Currency}}</span>{{if $archived}} <span class="badge">Archived</span>{{end}}</h1>
   <div class="actions">
     {{if not $archived}}<a class="button" href="/groups/{{$g.ID}}/expenses/new">Add expense</a>{{end}}
-    <a class="button secondary" href="/groups/{{$g.ID}}/history">History</a>
+    <a class="button secondary" href="/groups/{{$g.ID}}/history"><img class="icon" src="/static/icons/scroll.svg" alt="">History</a>
   </div>
 </div>
 {{if $archived}}<p class="notice">This group is archived. Everything is read-only{{if .IsOwner}}; you can unarchive it below{{end}}.</p>{{end}}
 
 <div class="columns">
-<section class="card">
-  <h2>Balances</h2>
-  <table>
+<section class="card scores-card">
+  <h2><img class="icon" src="/static/icons/heart.svg" alt="">High scores</h2>
+  <div class="scores-head" aria-hidden="true"><span>Rank</span><span>Player</span><span>Score</span></div>
+  <ol class="scores" aria-label="Balances, most owed first">
     {{range .Balances}}
-    <tr{{if not .Active}} class="muted"{{end}}>
-      <td>{{.Name}}{{if not .Active}} (left){{end}}</td>
-      <td class="num {{if gt .Amount 0}}pos{{else if lt .Amount 0}}neg{{end}}">
-        {{if gt .Amount 0}}is owed {{$.Money .Amount}}{{else if lt .Amount 0}}owes {{$.Money (abs .Amount)}}{{else}}settled{{end}}
-      </td>
-    </tr>
+    <li class="{{if eq .Rank 1}}top{{end}}{{if not .Active}} muted{{end}}">
+      <span class="rank">{{ordinal .Rank}}</span>
+      <span class="player"><span class="player-name">{{.Name}}{{if not .Active}} (left){{end}}</span><span class="leader" aria-hidden="true"></span></span>
+      <span class="score {{if gt .Amount 0}}pos{{else if lt .Amount 0}}neg{{end}}">
+        <span class="points">{{if gt .Amount 0}}+{{else if lt .Amount 0}}−{{end}}{{amount (abs .Amount) $g.Decimals}}</span>
+        <span class="small">{{if gt .Amount 0}}▲ is owed{{else if lt .Amount 0}}▼ owes{{else}}= settled{{end}} {{$g.Currency}}</span>
+      </span>
+    </li>
     {{end}}
-  </table>
+  </ol>
 </section>
 
 <section class="card">
-  <h2>Settle up</h2>
+  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Settle up</h2>
   {{if .SettleUp}}
-  <ul class="list">
+  <ul class="list rows">
     {{range .SettleUp}}
     <li>
-      {{$.Name .From}} pays {{$.Name .To}} <strong>{{$.Money .Amount}}</strong>
-      {{if .CanMark}}
-      <form method="post" action="/groups/{{$g.ID}}/settlements" class="inline">
-        <input type="hidden" name="from" value="{{.From}}">
-        <input type="hidden" name="to" value="{{.To}}">
-        <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
-        <button class="small">Mark paid</button>
-      </form>
-      {{end}}
+      <span class="row-text">{{$.Name .From}} pays {{$.Name .To}} <strong>{{$.Money .Amount}}</strong></span>
+      <span class="row-act">
+        {{if .CanMark}}
+        <form method="post" action="/groups/{{$g.ID}}/settlements">
+          <input type="hidden" name="from" value="{{.From}}">
+          <input type="hidden" name="to" value="{{.To}}">
+          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
+          <button class="small">Mark paid</button>
+        </form>
+        {{end}}
+      </span>
     </li>
     {{end}}
   </ul>
@@ -50,18 +55,18 @@
 </div>
 
 <section class="card">
-  <h2>Expenses</h2>
+  <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
   {{if .Expenses}}
   <table class="expenses">
-    <thead><tr><th>Date</th><th>What</th><th>Paid by</th><th class="num">Amount</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th><th></th></tr></thead>
     <tbody>
     {{range .Expenses}}
     <tr>
-      <td>{{.SpentOn}}</td>
+      <td class="nowrap">{{.SpentOn}}</td>
       <td>{{.Description}}
         <div class="muted small">{{.SplitType}}: {{range $i, $s := .Shares}}{{if $i}}, {{end}}{{$.Name $s.UserID}} {{$.Money $s.Amount}}{{end}}</div>
       </td>
-      <td>{{$.Name .PayerID}}</td>
+      <td class="who" data-label="Paid by">{{$.Name .PayerID}}</td>
       <td class="num">{{$.Money .Amount}}</td>
       <td class="row-actions">
         {{if .CanEdit}}
@@ -79,13 +84,15 @@
 </section>
 
 <section class="card">
-  <h2>Payments</h2>
+  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments</h2>
   {{if .Settlements}}
-  <ul class="list">
+  <ul class="list rows">
     {{range .Settlements}}
     <li>
-      {{$.Name .From}} paid {{$.Name .To}} <strong>{{$.Money .Amount}}</strong> <span class="muted small">{{date .CreatedAt}}</span>
-      {{if .CanDelete}}<form method="post" action="/groups/{{$g.ID}}/settlements/{{.ID}}/delete" class="inline"><button class="link danger">Delete</button></form>{{end}}
+      <span class="row-text">{{$.Name .From}} paid {{$.Name .To}} <strong>{{$.Money .Amount}}</strong> <span class="muted small nowrap">{{date .CreatedAt}}</span></span>
+      <span class="row-act">
+        {{if .CanDelete}}<form method="post" action="/groups/{{$g.ID}}/settlements/{{.ID}}/delete"><button class="link danger">Delete</button></form>{{end}}
+      </span>
     </li>
     {{end}}
   </ul>
@@ -106,15 +113,17 @@
 </section>
 
 <section class="card">
-  <h2>Members</h2>
-  <ul class="list">
+  <h2><img class="icon" src="/static/icons/heart.svg" alt="">Members</h2>
+  <ul class="list rows">
     {{range .Members}}
     <li{{if not .Active}} class="muted"{{end}}>
-      {{.Name}}{{if eq .Role "owner"}} <span class="badge">owner</span>{{end}}{{if not .Active}} (left){{end}}
-      {{if and $.IsOwner .Active (ne .UserID $.Me.UserID) (not $archived)}}
-      <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/owner" class="inline"><button class="link">Make owner</button></form>
-      <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/remove" class="inline"><button class="link danger">Remove</button></form>
-      {{end}}
+      <span class="row-text">{{.Name}}{{if eq .Role "owner"}} <span class="badge">owner</span>{{end}}{{if not .Active}} (left){{end}}</span>
+      <span class="row-act">
+        {{if and $.IsOwner .Active (ne .UserID $.Me.UserID) (not $archived)}}
+        <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/owner"><button class="link">Make owner</button></form>
+        <form method="post" action="/groups/{{$g.ID}}/members/{{.UserID}}/remove"><button class="link danger">Remove</button></form>
+        {{end}}
+      </span>
     </li>
     {{end}}
   </ul>
@@ -126,15 +135,16 @@
 
 {{if .IsOwner}}
 <section class="card">
-  <h2>Owner settings</h2>
+  <h2><img class="icon" src="/static/icons/key.svg" alt="">Owner settings</h2>
   {{if not $archived}}
   <h3>Invite links</h3>
   <form method="post" action="/groups/{{$g.ID}}/invites"><button>Create invite link</button></form>
   {{if .Invites}}
-  <ul class="list">
+  <ul class="list rows">
     {{range .Invites}}
-    <li>Link #{{.ID}} <span class="muted small">created {{date .CreatedAt}}, expires {{datetime .ExpiresAt}}</span>
-      <form method="post" action="/groups/{{$g.ID}}/invites/{{.ID}}/revoke" class="inline"><button class="link danger">Revoke</button></form>
+    <li>
+      <span class="row-text">Link #{{.ID}} <span class="muted small">created {{date .CreatedAt}}, expires {{datetime .ExpiresAt}}</span></span>
+      <span class="row-act"><form method="post" action="/groups/{{$g.ID}}/invites/{{.ID}}/revoke"><button class="link danger">Revoke</button></form></span>
     </li>
     {{end}}
   </ul>
@@ -142,7 +152,7 @@
 
   {{if $.DevAuth}}
   <h3>Dev tools</h3>
-  <form method="post" action="/groups/{{$g.ID}}/dev/add-users"><button class="secondary">Add Alice, Bob and Casey (dev users)</button></form>
+  <form method="post" action="/groups/{{$g.ID}}/dev/add-users"><button class="secondary">Add Mike, Chris and Ryan (dev users)</button></form>
   {{end}}
 
   <h3>Rename</h3>

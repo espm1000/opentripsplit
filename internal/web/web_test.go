@@ -512,7 +512,7 @@ func TestLeaveRequiresZeroBalance(t *testing.T) {
 	}
 	// The settle-up suggestion is bo pays ana 20.00; mark it paid.
 	page := bo.get(fmt.Sprintf("/groups/%d", g))
-	if !strings.Contains(page.Body, "bo pays ana <strong>20.00 EUR</strong>") {
+	if !strings.Contains(page.Body, "bo pays ana <strong>20.00\u00a0EUR</strong>") {
 		t.Fatalf("settle-up suggestion missing:\n%s", page.Body)
 	}
 	bo.mustPost(fmt.Sprintf("/groups/%d/settlements", g), url.Values{"from": {itoa(bo.ID)}, "to": {itoa(ana.ID)}, "amount": {"20.00"}})
@@ -688,7 +688,7 @@ func TestDeleteAccountHidesNameInHistory(t *testing.T) {
 		}
 	}
 	// Balances still add up: ana owes the former member 6.00.
-	if r := ana.get(fmt.Sprintf("/groups/%d", g)); !strings.Contains(r.Body, "ana pays "+former+" <strong>6.00 EUR</strong>") {
+	if r := ana.get(fmt.Sprintf("/groups/%d", g)); !strings.Contains(r.Body, "ana pays "+former+" <strong>6.00\u00a0EUR</strong>") {
 		t.Fatal("settle-up with former member missing")
 	}
 }
@@ -712,5 +712,38 @@ func TestHealthz(t *testing.T) {
 	e := newEnv(t)
 	if r := e.anon().get("/healthz"); r.Status != 200 || r.Body != "ok\n" {
 		t.Fatalf("healthz: %d %q", r.Status, r.Body)
+	}
+}
+
+func TestHighScoreBoard(t *testing.T) {
+	e := newEnv(t)
+	ana, bo, cy := e.login("ana"), e.login("bo"), e.login("cy")
+	g := ana.createGroup("Vegas 2026", "USD")
+	tok := ana.invite(g)
+	bo.join(tok)
+	cy.join(tok)
+	// bo pays 90 for all three: bo +60, ana −30, cy −30. Then cy pays 12 for cy and ana.
+	bo.addEqualExpense(g, "Buffet", "90", bo.ID, ana.ID, bo.ID, cy.ID)
+	cy.addEqualExpense(g, "Cab", "12", cy.ID, ana.ID, cy.ID)
+	// Balances: bo +60, cy −24, ana −36 → ranks bo, cy, ana.
+	body := ana.get(fmt.Sprintf("/groups/%d", g)).Body
+	for _, want := range []string{
+		`<span class="rank">1ST</span>`, `bo</span>`, `+60.00</span>`, "▲ is owed USD",
+		`<span class="rank">2ND</span>`, `cy</span>`, `−24.00</span>`, "▼ owes USD",
+		`<span class="rank">3RD</span>`, `ana</span>`, `−36.00</span>`,
+	} {
+		i := strings.Index(body, want)
+		if i < 0 {
+			t.Fatalf("high scores missing %q (or out of order)", want)
+		}
+		body = body[i+len(want):] // each must come after the previous one
+	}
+}
+
+func TestOrdinal(t *testing.T) {
+	for n, want := range map[int]string{1: "1ST", 2: "2ND", 3: "3RD", 4: "4TH", 11: "11TH", 12: "12TH", 13: "13TH", 21: "21ST", 22: "22ND", 101: "101ST", 111: "111TH"} {
+		if got := ordinal(n); got != want {
+			t.Errorf("ordinal(%d) = %s, want %s", n, got, want)
+		}
 	}
 }

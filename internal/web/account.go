@@ -65,5 +65,7 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request, u store.U
 	}
 	// The store already deleted every session; clear the cookie too.
 	s.auth.ClearSession(w)
-	s.render(w, http.StatusOK, "deleted", base{Title: "Account deleted", DevAuth: s.devAuth})
+	b := s.base(r, "Account deleted")
+	b.User = nil // the account is gone; don't show it in the header
+	s.render(w, http.StatusOK, "deleted", b)
 }

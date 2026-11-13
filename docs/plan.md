@@ -12,7 +12,8 @@ You want a self-hostable web app where friends log who paid for what on a trip, 
 - Dependabot also watches the Dockerfile base images.
 - No screenshot in the README yet.
 - Added after the plan: login providers can be configured in the browser. With no `GITHUB_*`/`DISCORD_*` env vars, the server logs a setup token; `/setup` takes it plus OAuth credentials, and the next login from that browser becomes the instance admin (`users.is_admin`), who edits providers at `/admin`. Env vars take precedence and are read-only in the UI. UI-entered secrets live in a new `settings` table (migration `0002`).
-- Added after the plan: `DEV_LOCAL_AUTH` dev login (refused unless `BASE_URL` is loopback) with three preset test users (Alice, Bob, Casey), free-name login, a "Switch user" link, and an owner-only button that adds the test users to a group. The setup claim cookie is now scoped to `/` so a dev login can claim admin.
+- Added after the plan: `DEV_LOCAL_AUTH` dev login (refused unless `BASE_URL` is loopback) with three preset test users (Mike, Chris, Ryan), free-name login, a "Switch user" link, and an owner-only button that adds the test users to a group. The setup claim cookie is now scoped to `/` so a dev login can claim admin.
+- Added after the plan: indie pixel-game theme tuned for keratoconus. Night/Parchment palettes (AAA text contrast, no pure black/white, enforced by `theme_test.go`), Pixelify Sans for headings/buttons, Atkinson Hyperlegible Next for body text (self-hosted, OFL), pixel-art SVG icons, and per-browser Theme/Text size settings via `POST /prefs` cookies.
 
 ## Decisions (confirmed)
 - **UI:** Go server-rendered HTML (`html/template`) + htmx. One binary, no JS build.

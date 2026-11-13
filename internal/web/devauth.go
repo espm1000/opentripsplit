@@ -25,9 +25,9 @@ type devUser struct {
 
 // devUsers are the extra people to put in groups when testing.
 var devUsers = []devUser{
-	{"alice", "Alice (dev)"},
-	{"bob", "Bob (dev)"},
-	{"casey", "Casey (dev)"},
+	{"mike", "Mike (dev)"},
+	{"chris", "Chris (dev)"},
+	{"ryan", "Ryan (dev)"},
 }
 
 func (s *Server) registerDevRoutes(mux *http.ServeMux) {
@@ -38,7 +38,7 @@ func (s *Server) registerDevRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /groups/{id}/dev/add-users", s.member(s.devAddUsers))
 }
 
-// devLogin logs in as a preset dev user (user=alice) or as anyone by name
+// devLogin logs in as a preset dev user (user=mike) or as anyone by name
 // (name=Nick). Logging in while logged in switches user.
 func (s *Server) devLogin(w http.ResponseWriter, r *http.Request) {
 	var key, name string

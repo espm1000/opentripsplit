@@ -8,7 +8,7 @@ Thanks for helping! Bug reports, fixes and small features are all welcome. For a
 2. Create a GitHub or Discord OAuth app with callback `http://localhost:8080/auth/<provider>/callback` (see the README).
 3. Run `go run ./cmd/opentripsplit`, open http://localhost:8080/setup, and enter the setup token from the log plus your OAuth app's credentials. Alternatively, put them in `.env` (copy `.env.example`) and load it with `set -a; . ./.env; set +a` before starting.
 
-**Quickest:** skip OAuth with dev login: `DEV_LOCAL_AUTH=1 LISTEN_ADDR=127.0.0.1:8080 go run ./cmd/opentripsplit`. Log in as Alice, Bob or Casey (or any name), use **Switch user** to change people, and use the group's **Add Alice, Bob and Casey** button. See the README for details.
+**Quickest:** skip OAuth with dev login: `DEV_LOCAL_AUTH=1 LISTEN_ADDR=127.0.0.1:8080 go run ./cmd/opentripsplit`. Log in as Mike, Chris or Ryan (or any name), use **Switch user** to change people, and use the group's **Add Mike, Chris and Ryan** button. See the README for details.
 
 To try real logins with several people, use different browsers or private windows.
 

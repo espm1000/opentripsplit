@@ -14,7 +14,7 @@
   <h2>New group</h2>
   {{with .Error}}<p class="error">{{.}}</p>{{end}}
   <form method="post" action="/groups" class="grid">
-    <label>Name <input name="name" value="{{.Name}}" maxlength="60" required placeholder="Lisbon 2026"></label>
+    <label>Name <input name="name" value="{{.Name}}" maxlength="60" required placeholder="Vegas 2026"></label>
     <label>Currency
       <select name="currency">
         {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Currency}} selected{{end}}>{{.Code}}</option>{{end}}

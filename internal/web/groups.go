@@ -1,8 +1,10 @@
 package web
 
 import (
+	"cmp"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/espm1000/opentripsplit/internal/auth"
@@ -75,9 +77,10 @@ func (d *groupData) Name(id int64) string {
 	return "user #" + strconv.FormatInt(id, 10)
 }
 
-// Money formats minor units in the group currency.
+// Money formats minor units in the group currency. The no-break space
+// keeps the number and currency code on the same line.
 func (d *groupData) Money(v int64) string {
-	return ledger.FormatAmount(v, d.Group.Decimals()) + " " + d.Group.Currency
+	return ledger.FormatAmount(v, d.Group.Decimals()) + "\u00a0" + d.Group.Currency
 }
 
 type expenseRow struct {
@@ -90,11 +93,13 @@ type settlementRow struct {
 	CanDelete bool
 }
 
+// balanceRow is one line of the high-score board.
 type balanceRow struct {
 	UserID int64
 	Name   string
 	Amount int64
 	Active bool
+	Rank   int // 1 = the person the group owes the most
 }
 
 type paymentRow struct {
@@ -131,8 +136,13 @@ func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error
 	bal := store.Balances(expenses, settlements)
 	for _, m := range members {
 		if m.Active || bal[m.UserID] != 0 {
-			d.Balances = append(d.Balances, balanceRow{m.UserID, m.Name, bal[m.UserID], m.Active})
+			d.Balances = append(d.Balances, balanceRow{UserID: m.UserID, Name: m.Name, Amount: bal[m.UserID], Active: m.Active})
 		}
+	}
+	// High-score order: most owed first, biggest debt last.
+	slices.SortStableFunc(d.Balances, func(a, b balanceRow) int { return cmp.Compare(b.Amount, a.Amount) })
+	for i := range d.Balances {
+		d.Balances[i].Rank = i + 1
 	}
 	for _, p := range ledger.SettleUp(bal) {
 		canMark := writable && (p.From == gc.User.ID || p.To == gc.User.ID || gc.IsOwner())

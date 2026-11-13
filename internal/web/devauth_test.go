@@ -28,7 +28,7 @@ func (c *client) devLogin(form url.Values) result {
 func TestDevLoginOffByDefault(t *testing.T) {
 	e := newEnv(t)
 	c := e.anon()
-	if r := c.post("/dev/login", url.Values{"user": {"alice"}}); r.Status != http.StatusNotFound {
+	if r := c.post("/dev/login", url.Values{"user": {"mike"}}); r.Status != http.StatusNotFound {
 		t.Fatalf("dev login when off: %d", r.Status)
 	}
 	ana := e.login("ana")
@@ -46,7 +46,7 @@ func TestDevLogin(t *testing.T) {
 	c := e.anon()
 
 	page := c.get("/login")
-	for _, want := range []string{"Dev login is on", "Log in as Alice (dev)", "Log in as Bob (dev)", "Log in as Casey (dev)"} {
+	for _, want := range []string{"Dev login is on", "Log in as Mike (dev)", "Log in as Chris (dev)", "Log in as Ryan (dev)"} {
 		if !strings.Contains(page.Body, want) {
 			t.Errorf("login page missing %q", want)
 		}
@@ -55,12 +55,12 @@ func TestDevLogin(t *testing.T) {
 		t.Error("setup notice shown although dev login works")
 	}
 
-	if r := c.devLogin(url.Values{"user": {"alice"}}); r.Status != http.StatusSeeOther || r.Location != "/groups" {
+	if r := c.devLogin(url.Values{"user": {"mike"}}); r.Status != http.StatusSeeOther || r.Location != "/groups" {
 		t.Fatalf("dev login: %d %s", r.Status, r.Location)
 	}
-	alice, _ := c.sessionUser()
-	if alice.DisplayName != "Alice (dev)" {
-		t.Fatalf("logged in as %q", alice.DisplayName)
+	mike, _ := c.sessionUser()
+	if mike.DisplayName != "Mike (dev)" {
+		t.Fatalf("logged in as %q", mike.DisplayName)
 	}
 	if r := c.get("/groups"); !strings.Contains(r.Body, "Switch user") {
 		t.Error("switch user link missing")
@@ -70,10 +70,10 @@ func TestDevLogin(t *testing.T) {
 	if r := c.get("/login?switch=1"); r.Status != 200 {
 		t.Fatalf("switch page: %d", r.Status)
 	}
-	c.devLogin(url.Values{"user": {"bob"}, "next": {"/account"}})
-	bob, _ := c.sessionUser()
-	if bob.DisplayName != "Bob (dev)" || bob.ID == alice.ID {
-		t.Fatalf("switched to %+v", bob)
+	c.devLogin(url.Values{"user": {"chris"}, "next": {"/account"}})
+	chris, _ := c.sessionUser()
+	if chris.DisplayName != "Chris (dev)" || chris.ID == mike.ID {
+		t.Fatalf("switched to %+v", chris)
 	}
 
 	// Free-form names map to a stable account.
@@ -89,7 +89,7 @@ func TestDevLogin(t *testing.T) {
 	if r := e.anon().post("/dev/login", url.Values{"user": {"mallory"}}); r.Status != http.StatusBadRequest {
 		t.Fatalf("unknown dev user: %d", r.Status)
 	}
-	if r := e.anon().devLogin(url.Values{"user": {"casey"}, "next": {"//evil.example"}}); r.Location != "/groups" {
+	if r := e.anon().devLogin(url.Values{"user": {"ryan"}, "next": {"//evil.example"}}); r.Location != "/groups" {
 		t.Fatalf("unsafe next followed: %s", r.Location)
 	}
 }
@@ -115,17 +115,17 @@ func TestDevAddUsersToGroup(t *testing.T) {
 	}
 
 	// The dev users can log in and use the group.
-	bob := e.anon()
-	bob.devLogin(url.Values{"user": {"bob"}})
-	if r := bob.get(fmt.Sprintf("/groups/%d", g)); r.Status != 200 || !strings.Contains(r.Body, "Casey (dev)") {
-		t.Fatalf("bob's view of the group: %d", r.Status)
+	chris := e.anon()
+	chris.devLogin(url.Values{"user": {"chris"}})
+	if r := chris.get(fmt.Sprintf("/groups/%d", g)); r.Status != 200 || !strings.Contains(r.Body, "Ryan (dev)") {
+		t.Fatalf("chris's view of the group: %d", r.Status)
 	}
-	if r := bob.addEqualExpense(g, "Coffee", "9.00", bob.ID, bob.ID, me.ID); r.Status != http.StatusSeeOther {
-		t.Fatalf("bob adds expense: %d %s", r.Status, r.Body)
+	if r := chris.addEqualExpense(g, "Coffee", "9.00", chris.ID, chris.ID, me.ID); r.Status != http.StatusSeeOther {
+		t.Fatalf("chris adds expense: %d %s", r.Status, r.Body)
 	}
 
 	// Only the owner may add them, and only members can reach the route.
-	if r := bob.post(fmt.Sprintf("/groups/%d/dev/add-users", g), nil); r.Status != http.StatusForbidden {
+	if r := chris.post(fmt.Sprintf("/groups/%d/dev/add-users", g), nil); r.Status != http.StatusForbidden {
 		t.Fatalf("non-owner add-users: %d", r.Status)
 	}
 	stranger := e.anon()
@@ -149,9 +149,9 @@ func TestDevLoginCanClaimAdmin(t *testing.T) {
 		t.Fatalf("admin page: %d", r.Status)
 	}
 	// Other dev users don't.
-	bob := e.anon()
-	bob.devLogin(url.Values{"user": {"bob"}})
-	if u, _ := bob.sessionUser(); u.IsAdmin {
+	chris := e.anon()
+	chris.devLogin(url.Values{"user": {"chris"}})
+	if u, _ := chris.sessionUser(); u.IsAdmin {
 		t.Fatal("second dev user became admin")
 	}
 }

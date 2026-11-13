@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>Admin</h1>
+<h1><img class="icon" src="/static/icons/key.svg" alt="">Admin</h1>
 {{if .Saved}}<p class="notice">Saved. Login providers are updated.</p>{{end}}
 {{with .Error}}<p class="error">{{.}}</p>{{end}}
 <form method="post" action="/admin/providers" class="card form">

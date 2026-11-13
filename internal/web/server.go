@@ -70,6 +70,7 @@ func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server
 		"datetime": func(t time.Time) string { return t.Format("2 Jan 2006 15:04 MST") },
 		"amount":   ledger.FormatAmount,
 		"abs":      func(v int64) int64 { return max(v, -v) },
+		"ordinal":  ordinal,
 	}
 	pages, err := fs.Glob(templatesFS, "templates/*.html")
 	if err != nil {
@@ -106,6 +107,7 @@ func (s *Server) Handler() http.Handler {
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /healthz", s.healthz)
+	mux.HandleFunc("POST /prefs", s.savePrefs)
 
 	mux.HandleFunc("GET /{$}", s.home)
 	mux.HandleFunc("GET /login", s.loginPage)
@@ -227,11 +229,26 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 type base struct {
 	User    *store.User
 	Title   string
-	DevAuth bool // shows the dev-login banner
+	DevAuth bool   // shows the dev-login banner
+	Theme   string // system, dark or light (see prefs.go)
+	Size    string // normal, large or huge
+	Path    string // where the preferences form returns to
 }
 
+// Themes and TextSizes feed the preferences form in the footer.
+func (base) Themes() []string    { return themes }
+func (base) TextSizes() []string { return textSizes }
+
 func (s *Server) base(r *http.Request, title string) base {
-	b := base{Title: title, DevAuth: s.devAuth}
+	b := base{
+		Title: title, DevAuth: s.devAuth,
+		Theme: pref(r, themeCookie, themes), Size: pref(r, sizeCookie, textSizes),
+		Path: "/",
+	}
+	// After a POST there's no page to return to, so the form goes home.
+	if r.Method == http.MethodGet {
+		b.Path = r.URL.RequestURI()
+	}
 	if u, ok := auth.UserFrom(r.Context()); ok {
 		b.User = &u
 	}
@@ -394,4 +411,20 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
 		v.DevUsers = devUsers
 	}
 	s.render(w, http.StatusOK, "login", v)
+}
+
+// ordinal renders a high-score rank: 1ST, 2ND, 3RD, 4TH, 11TH, 21ST...
+func ordinal(n int) string {
+	suffix := "TH"
+	if n%100 < 11 || n%100 > 13 {
+		switch n % 10 {
+		case 1:
+			suffix = "ST"
+		case 2:
+			suffix = "ND"
+		case 3:
+			suffix = "RD"
+		}
+	}
+	return strconv.Itoa(n) + suffix
 }

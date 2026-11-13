@@ -34,7 +34,7 @@ For development you can skip GitHub/Discord entirely:
 DEV_LOCAL_AUTH=1 LISTEN_ADDR=127.0.0.1:8080 go run ./cmd/opentripsplit
 ```
 
-The login page then offers **Log in as Alice (dev) / Bob (dev) / Casey (dev)**, plus a box to log in under any name (the same name always reaches the same account). A **Switch user** link in the header lets one browser hop between people. On a group's page, the owner gets a **Add Alice, Bob and Casey** button that puts the three test users in the group (through a one-time invite, so it shows in the history like a normal join).
+The login page then offers **Log in as Mike (dev) / Chris (dev) / Ryan (dev)**, plus a box to log in under any name (the same name always reaches the same account). A **Switch user** link in the header lets one browser hop between people. On a group's page, the owner gets a **Add Mike, Chris and Ryan** button that puts the three test users in the group (through a one-time invite, so it shows in the history like a normal join).
 
 To test the admin pages too, complete `/setup` with the setup token (any dummy client ID and secret will do) and then dev-log in from the same browser; that user becomes admin.
 
@@ -115,6 +115,18 @@ sqlite3 /path/to/opentripsplit.db ".backup /backups/opentripsplit-$(date +%F).db
 
 To restore, stop the server, replace the database file with the backup (and delete any `-wal`/`-shm` files next to it), then start the server again.
 
+## Look and accessibility
+
+The UI has an indie pixel-game look, tuned for people with **keratoconus** (and low vision in general):
+
+- **Two palettes:** *Night* (warm charcoal) and *Parchment* (cream). Neither uses pure black or pure white. Every text colour is at least 7:1 contrast (WCAG AAA), but peak contrast is kept around 13–14:1 rather than 21:1, which cuts halos and glare. Saturated neon pairs are avoided, and colour never carries meaning alone (balances also show ▲/▼ and "owes"/"is owed"). `internal/web/theme_test.go` fails the build if a colour change breaks these targets.
+- **Fonts:** the pixel font (*Pixelify Sans*) is used only for large text: headings, buttons and the logo. Everything you read closely (amounts, descriptions, forms) uses *Atkinson Hyperlegible Next*, a typeface designed for low vision.
+- **Settings in the footer of every page:** Theme (Match device / Night / Parchment) and Text size (Normal 18px / Large 20px / Huge 24px). They're saved per browser in cookies and applied on the server, so pages never flash the wrong theme, and they work without JavaScript. The whole layout scales with text size, and tables stack into rows on narrow screens.
+- **High scores:** each group's balances are shown as an arcade high-score board: everyone ranked from most owed (1ST ★) to biggest debt, with signed amounts as the "score". Scores use the body font, because in the pixel font "5" and "S" look alike. Entries switch to two lines when the card is narrow, so names never get squeezed.
+- **No visual noise:** no textures, scanlines, glow or blur. The only motion is a 1-frame button press, which `prefers-reduced-motion` turns off. Keyboard focus is a thick dashed outline.
+
+Fonts are self-hosted (the Content-Security-Policy allows only same-origin resources) under the SIL Open Font License 1.1; see `internal/web/static/fonts/OFL-*.txt`. The pixel-art icons are original SVGs in `internal/web/static/icons/`.
+
 ## Privacy
 
 OpenTripSplit stores as little as it can:
@@ -123,6 +135,7 @@ OpenTripSplit stores as little as it can:
 - A display name you can change, plus the groups, expenses and payments you take part in.
 - OAuth app client secrets, if the admin enters them in the UI (instance settings, not user data).
 - **Not stored:** email, avatar, passwords, or OAuth access tokens. Tokens are dropped right after login.
+- Display preferences (theme, text size) are stored only in your browser's cookies.
 - Request logs record method, path, status and duration. They contain **no IP addresses**, and invite tokens are redacted.
 - **Delete account** removes your logins and sessions. In shared groups you show as "Former member #N" so balances still add up. The audit log stores user IDs, never names, so your old name doesn't survive there either.
 
