@@ -64,6 +64,7 @@ jobs:
         run: |
           # Report names can't contain "/", so feat/foo becomes feat-foo.
           name="@${BRANCH//\//-}"
+          echo "DEBUG: ${name}"
           curl -sS --fail-with-body -X PUT -H 'Content-Type: application/json' \
             --data-binary @gosec_results.sarif "${VIEWER_URL}/api/reports/${name}"
   sbom-and-grype:
