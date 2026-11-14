@@ -24,7 +24,7 @@ CI runs all three on every pull request. The handler tests use a fake OAuth serv
 
 Where tests live:
 
-- `internal/ledger`: table-driven and randomized tests for the money logic. Any change to splitting, rounding or settle-up needs tests here.
+- `internal/ledger`: table-driven and randomized tests for the money logic. Any change to splitting, rounding or settle-up needs tests here. See [How splits are calculated](README.md#how-splits-are-calculated) for the rules `split_test.go` checks and how to see its working with `go test -v`.
 - `internal/store`: tests against a temporary SQLite file, including permission rules.
 - `internal/web`: end-to-end HTTP tests through the real login flow.
 

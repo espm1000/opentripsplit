@@ -4,7 +4,7 @@ A small, self-hostable web app for splitting trip costs with friends. Everyone l
 
 - **Groups** with one currency each. Old trips are archived but stay fully viewable.
 - **Four ways to split:** equally, exact amounts, percentages, or shares (e.g. 2 for someone who counts double).
-- **Exact money:** amounts are stored as integer minor units (cents, yen, fils), never floats. Rounding leftovers are spread fairly and every split adds up exactly.
+- **Exact money:** amounts are stored as integer minor units (cents, yen, fils), never floats. Rounding leftovers are spread fairly and every split adds up exactly ([how](#how-splits-are-calculated)).
 - **Settle up:** suggested payments; tap "Mark paid" to record one.
 - **Full history:** every add, edit and delete is kept in an audit log, so discrepancies can be traced.
 - **Login with GitHub or Discord.** No passwords and no email stored.
@@ -140,6 +140,60 @@ OpenTripSplit stores as little as it can:
 - **Delete account** removes your logins and sessions. In shared groups you show as "Former member #N" so balances still add up. The audit log stores user IDs, never names, so your old name doesn't survive there either.
 
 A user ID and display name still count as personal data under laws like the GDPR. If you run a public instance, you are responsible for meeting those obligations.
+
+## How splits are calculated
+
+Amounts are integers in the currency's smallest unit (cents, yen, fils), so $33.33 is 3333. Each expense is split like this:
+
+1. Work out everyone's exact share: total × their weight ÷ all weights. The weight is 1 each for an equal split, the percentage for a percent split, or the number of shares for a shares split. Exact splits use the amounts as entered.
+2. Round everyone down. That usually leaves a few units over, never more than one per person.
+3. Give the leftover units, one each, to the people whose shares lost the most in rounding (the largest remainders).
+4. If remainders tie, people take turns in user-ID order. Each expense starts the queue at a different person, chosen by its expense ID, so the same person doesn't always pay the extra cent.
+
+For example, $100.00 split three ways is 3333.33… cents each. Everyone gets 3333, and the cent left over goes to whoever's turn it is: one expense gives it to the first person, the next to the second, and so on. The result always adds up to the total exactly, and nobody is ever more than one cent away from their exact share.
+
+### How the math is verified
+
+The split tests are in `internal/ledger/split_test.go`:
+
+- **Hand-checked examples:** 17 splits across every split type and the zero- and three-decimal currencies (yen, fils), plus a whole trip followed from expenses to balances to settle-up. Every expected number is worked out in a comment, so you can check it with a calculator.
+- **Independent checker:** a second implementation recomputes each exact share with arbitrary-precision arithmetic (`math/big`). It accepts only the one result the rules above allow. It runs on 20,000 random splits, from 1 cent up to the maximum amount, and at the int64 limits.
+- **Taking turns:** tests confirm that the leftover moves one person along per expense, wraps from the last person back to the first, and evens out exactly over consecutive expenses. They also confirm it only ever breaks ties (it never overrides a larger remainder), handles any rotation value including negative and extreme ones, and ignores the order people are listed in.
+
+To make sure the tests can actually fail, each common rounding bug was planted in turn (ignoring the rotation, reversing the tiebreak, smallest remainder first, an off-by-one in the turn order, and others). Every one made tests fail.
+
+The tests log their working. A normal `go test` run stays quiet, and a failing test always prints its log. To see the working for passing tests, add `-v`:
+
+```sh
+go test -v -run 'Split|RoundRobin|Trip' ./internal/ledger/       # everything (~600 lines)
+go test -v -run 'TestSplitWorkedExamples' ./internal/ledger/      # just the hand-checked splits
+go test -v -run 'Split|RoundRobin|Trip' ./internal/ledger/ > split-verification.log
+```
+
+Each split prints a table of how its answer was reached:
+
+```
+shares split of 7 between 3 people, rotation 0
+  user  weight  exact share  floor  remainder  turn  gets
+     1       3        4.200      4        1/5     0     4
+     2       1        1.400      1        2/5     1     2  +1
+     3       1        1.400      1        2/5     2     1
+floors sum to 6, leaving 1: largest remainders first, ties by turn (rotation 0 mod 3 = 0)
+✓ sums to 7; everyone within one unit of their exact share; extras follow the rule
+```
+
+User 1 has the biggest share but the smallest remainder (0.2), so the leftover unit goes to users 2 and 3, who tie at 0.4. It's user 2's turn first.
+
+Looping tests print summaries instead, including a grid showing who gets the extra units as the rotation changes (■ = extra unit):
+
+```
+3 left over, rotation 3: ■ · · ■ ■
+```
+
+Two behaviours to be aware of:
+
+- **Turns are only fair across full ties.** In the 3 : 1 : 1 example above, user 1 never ties, so the turns are shared between users 2 and 3 only: user 2 gets the unit on 2 of every 3 rotations and user 3 on 1.
+- **The rotation uses the global expense ID.** IDs are shared by every group on the server, so one group's expenses aren't always numbered consecutively. Over time the extra cents are fair on average, but not exactly even within each group.
 
 ## Development
 
