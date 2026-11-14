@@ -86,6 +86,7 @@ func (d *groupData) Money(v int64) string {
 type expenseRow struct {
 	store.Expense
 	CanEdit bool
+	Locked  bool // includes a former member, so it can be deleted but not edited
 }
 
 type settlementRow struct {
@@ -127,7 +128,7 @@ func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error
 	}
 	writable := !gc.Group.Archived()
 	for _, e := range expenses {
-		d.Expenses = append(d.Expenses, expenseRow{e, writable && (e.CreatedBy == gc.User.ID || gc.IsOwner())})
+		d.Expenses = append(d.Expenses, expenseRow{e, writable && (e.CreatedBy == gc.User.ID || gc.IsOwner()), includesFormer(e, members)})
 	}
 	for _, st := range settlements {
 		d.Settlements = append(d.Settlements, settlementRow{st, writable && (st.CreatedBy == gc.User.ID || gc.IsOwner())})

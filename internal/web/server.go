@@ -295,7 +295,8 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		s.errorPage(w, r, http.StatusNotFound, "Not found.")
 	case errors.Is(err, store.ErrForbidden):
 		s.errorPage(w, r, http.StatusForbidden, capitalize(err.Error())+".")
-	case errors.Is(err, store.ErrArchived), errors.Is(err, store.ErrNonZeroBalance), errors.Is(err, store.ErrOwnerMustStay):
+	case errors.Is(err, store.ErrArchived), errors.Is(err, store.ErrNonZeroBalance), errors.Is(err, store.ErrOwnerMustStay),
+		errors.Is(err, store.ErrFormerParticipant):
 		s.errorPage(w, r, http.StatusConflict, capitalize(err.Error())+".")
 	case errors.Is(err, store.ErrInviteExpired), errors.Is(err, store.ErrInviteRevoked):
 		s.errorPage(w, r, http.StatusGone, capitalize(err.Error())+". Ask the group owner for a new one.")

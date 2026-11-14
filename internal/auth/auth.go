@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"golang.org/x/oauth2"
 
@@ -173,9 +174,12 @@ type flow struct {
 	Link     bool   `json:"l,omitempty"`
 }
 
-// SafeNext returns next if it's a same-site path, otherwise "".
+// SafeNext returns next if it's a same-site path, otherwise "". Control
+// characters are refused: browsers strip tabs and newlines from URLs, so
+// "/\t/evil.example" would become "//evil.example".
 func SafeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") ||
+		strings.ContainsFunc(next, unicode.IsControl) {
 		return ""
 	}
 	return next
@@ -223,10 +227,16 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if err != nil || f.Provider != p.Name || f.State == "" ||
 		subtle.ConstantTimeCompare([]byte(f.State), []byte(q.Get("state"))) != 1 {
+		// err is set when the flow cookie is missing or unreadable.
+		a.Log.Warn("oauth callback: login state missing or mismatched", "provider", p.Name, "err", err)
 		a.fail(w, r, http.StatusBadRequest, "Login expired or was started in another tab. Please try again.")
 		return
 	}
 	if q.Get("error") != "" || q.Get("code") == "" {
+		// Never log code or state. error shows misconfiguration such as
+		// redirect_uri_mismatch, or the user pressing cancel (access_denied).
+		a.Log.Warn("oauth callback: provider returned no code", "provider", p.Name,
+			"error", q.Get("error"), "error_description", q.Get("error_description"))
 		a.fail(w, r, http.StatusBadRequest, "Login was cancelled.")
 		return
 	}

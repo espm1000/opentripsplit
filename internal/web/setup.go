@@ -193,6 +193,7 @@ func (s *Server) saveSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	given := strings.TrimSpace(r.PostFormValue("setup_token"))
 	if subtle.ConstantTimeCompare([]byte(given), []byte(tok)) != 1 {
+		s.log.Warn("setup: wrong setup token")
 		s.renderSetup(w, r, "setup", http.StatusForbidden, "That setup token is wrong. Copy it from the server log.")
 		return
 	}
@@ -237,6 +238,7 @@ func (s *Server) saveProviders(w http.ResponseWriter, r *http.Request, page stri
 	}
 	set := map[string]string{}
 	var del []string
+	var on, off, newSecret []string // for the log; env providers aren't touched
 	enabled := 0
 	for _, k := range auth.Known {
 		if _, ok := s.envProviders[k.Name]; ok {
@@ -248,16 +250,20 @@ func (s *Server) saveProviders(w http.ResponseWriter, r *http.Request, page stri
 		sec := strings.TrimSpace(r.PostFormValue(k.Name + "_client_secret"))
 		if id == "" {
 			del = append(del, idKey, secKey)
+			off = append(off, k.Name)
 			continue
 		}
 		if sec == "" {
 			sec = settings[secKey]
+		} else {
+			newSecret = append(newSecret, k.Name)
 		}
 		if sec == "" {
 			s.renderSetup(w, r, page, http.StatusBadRequest, "Enter the "+k.Label+" client secret.")
 			return false
 		}
 		set[idKey], set[secKey] = id, sec
+		on = append(on, k.Name)
 		enabled++
 	}
 	if enabled == 0 {
@@ -272,5 +278,11 @@ func (s *Server) saveProviders(w http.ResponseWriter, r *http.Request, page stri
 		s.fail(w, r, err)
 		return false
 	}
+	// No secrets or client IDs here. At /setup nobody is logged in yet.
+	attrs := []any{"page", page, "on", on, "off", off, "new_secret", newSecret}
+	if u, ok := auth.UserFrom(ctx); ok {
+		attrs = append(attrs, "user_id", u.ID)
+	}
+	s.log.Info("login providers updated", attrs...)
 	return true
 }

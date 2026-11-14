@@ -29,6 +29,15 @@ type Expense struct {
 	Shares      []ExpenseShare // sorted by user ID
 }
 
+// Participants returns the payer and everyone with a share.
+func (e Expense) Participants() []int64 {
+	ids := []int64{e.PayerID}
+	for _, sh := range e.Shares {
+		ids = append(ids, sh.UserID)
+	}
+	return ids
+}
+
 // ExpenseShare is one participant's raw input and computed portion.
 type ExpenseShare struct {
 	UserID int64
@@ -177,6 +186,13 @@ func (s *Store) UpdateExpense(ctx context.Context, groupID, expenseID, actorID i
 		old, err := editableExpense(ctx, tx, groupID, expenseID, actorID)
 		if err != nil {
 			return err
+		}
+		for _, id := range old.Participants() {
+			if _, err := activeMember(ctx, tx, groupID, id); errors.Is(err, ErrNotFound) {
+				return ErrFormerParticipant
+			} else if err != nil {
+				return err
+			}
 		}
 		if err := checkParticipants(ctx, tx, groupID, in); err != nil {
 			return err

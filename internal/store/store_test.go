@@ -225,6 +225,41 @@ func TestExpenseLifecycleAndPermissions(t *testing.T) {
 	}
 }
 
+func TestExpenseWithFormerMemberCantBeEdited(t *testing.T) {
+	s, _ := newStore(t)
+	ctx := context.Background()
+	ana, bo, cy := newUser(t, s, "ana"), newUser(t, s, "bo"), newUser(t, s, "cy")
+	g := groupWith(t, s, ana, bo, cy)
+	paidByBo, err := s.CreateExpense(ctx, g, ana, equal(bo, 300, ana, cy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sharedWithBo, err := s.CreateExpense(ctx, g, ana, equal(ana, 300, ana, bo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	notBo, err := s.CreateExpense(ctx, g, ana, equal(ana, 300, ana, cy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteAccount(ctx, bo); err != nil {
+		t.Fatal(err)
+	}
+
+	// Leaving bo out of the new input would wipe what they owe or are owed.
+	for _, id := range []int64{paidByBo, sharedWithBo} {
+		if err := s.UpdateExpense(ctx, g, id, ana, equal(ana, 300, ana, cy)); !errors.Is(err, ErrFormerParticipant) {
+			t.Fatalf("edit expense %d: %v", id, err)
+		}
+	}
+	if b := balances(t, s, g); b[bo] != 150 {
+		t.Fatalf("bo's balance changed: %v", b)
+	}
+	if err := s.UpdateExpense(ctx, g, notBo, ana, equal(ana, 400, ana, cy)); err != nil {
+		t.Fatalf("edit without former member: %v", err)
+	}
+}
+
 func TestExpenseFromOtherGroupNotFound(t *testing.T) {
 	s, _ := newStore(t)
 	ctx := context.Background()

@@ -105,6 +105,10 @@ func (s *Server) editExpensePage(w http.ResponseWriter, r *http.Request, gc *gro
 		s.fail(w, r, err)
 		return
 	}
+	if includesFormer(e, members) {
+		s.fail(w, r, store.ErrFormerParticipant)
+		return
+	}
 	dec := gc.Group.Decimals()
 	f := expenseForm{
 		Description: e.Description,
@@ -149,6 +153,21 @@ func (s *Server) editableExpense(w http.ResponseWriter, r *http.Request, gc *gro
 		return e, false
 	}
 	return e, true
+}
+
+// includesFormer reports whether the payer or anyone with a share is not an
+// active member. Such expenses can't be edited (see store.ErrFormerParticipant).
+func includesFormer(e store.Expense, members []store.Member) bool {
+	active := map[int64]bool{}
+	for _, m := range members {
+		active[m.UserID] = m.Active
+	}
+	for _, id := range e.Participants() {
+		if !active[id] {
+			return true
+		}
+	}
+	return false
 }
 
 // splitFields renders just the per-person inputs for the chosen split type

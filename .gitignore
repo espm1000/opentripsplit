@@ -37,3 +37,6 @@ go.work.sum
 *.db
 *.db-wal
 *.db-shm
+
+# Local review reports
+.scratch/

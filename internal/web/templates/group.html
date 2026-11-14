@@ -70,7 +70,7 @@
       <td class="num">{{$.Money .Amount}}</td>
       <td class="row-actions">
         {{if .CanEdit}}
-        <a href="/groups/{{$g.ID}}/expenses/{{.ID}}/edit">Edit</a>
+        {{if not .Locked}}<a href="/groups/{{$g.ID}}/expenses/{{.ID}}/edit">Edit</a>{{end}}
         <form method="post" action="/groups/{{$g.ID}}/expenses/{{.ID}}/delete" class="inline"><button class="link danger">Delete</button></form>
         {{end}}
       </td>

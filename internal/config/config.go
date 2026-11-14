@@ -22,8 +22,9 @@ type Config struct {
 	DiscordID    string
 	DiscordSec   string
 	// DevLocalAuth enables password-less dev login (DEV_LOCAL_AUTH). It is
-	// refused unless BASE_URL points at this machine, so it can't be left on
-	// in production.
+	// refused unless BASE_URL is localhost. That only checks BASE_URL: also
+	// bind LISTEN_ADDR to loopback, since anyone who can reach the port can
+	// log in.
 	DevLocalAuth bool
 }
 

@@ -32,6 +32,11 @@ func TestSafeNext(t *testing.T) {
 		"/\\evil.example":   "",
 		"https://evil.test": "",
 		"groups":            "",
+		// Browsers strip tabs and newlines, turning these into //evil.example.
+		"/\t/evil.example": "",
+		"/\n/evil.example": "",
+		"/\r/evil.example": "",
+		"/groups/\x7f":     "",
 	} {
 		if got := SafeNext(in); got != want {
 			t.Errorf("SafeNext(%q) = %q, want %q", in, got, want)

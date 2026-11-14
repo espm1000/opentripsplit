@@ -93,6 +93,26 @@ type env struct {
 	ts      *httptest.Server
 	github  *fakeProvider
 	discord *fakeProvider
+	logs    *logBuffer
+}
+
+// logBuffer collects server logs. Handlers log from the server's
+// goroutines, so access is locked.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (b *logBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *logBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // newEnv starts a server with both providers configured through env vars.
@@ -114,7 +134,7 @@ func newEnvWith(t *testing.T, envProviders map[string]config.OAuthCreds, opts ..
 	}
 	t.Cleanup(func() { _ = st.Close() })
 
-	e := &env{t: t, store: st}
+	e := &env{t: t, store: st, logs: &logBuffer{}}
 	// GitHub profiles: numeric id derived from the login.
 	e.github = newFakeProvider(t, func(login string) any {
 		var id int64
@@ -131,7 +151,7 @@ func newEnvWith(t *testing.T, envProviders map[string]config.OAuthCreds, opts ..
 	e.ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.ServeHTTP(w, r) }))
 	t.Cleanup(e.ts.Close)
 	base, _ := url.Parse(e.ts.URL)
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	log := slog.New(slog.NewTextHandler(e.logs, nil))
 	a := &auth.Auth{Store: st, SessionTTL: 30 * 24 * time.Hour, Log: log}
 	o := Options{BaseURL: base, InviteTTL: 7 * 24 * time.Hour, EnvProviders: envProviders, Log: log}
 	for _, opt := range opts {
@@ -347,6 +367,27 @@ func TestLoginRejectsBadState(t *testing.T) {
 	}
 	if r := c.get("/auth/github/callback?code=x&state=wrong"); r.Status != http.StatusBadRequest {
 		t.Fatalf("bad state: %d", r.Status)
+	}
+	if logs := e.logs.String(); !strings.Contains(logs, "login state missing or mismatched") || !strings.Contains(logs, "provider=github") {
+		t.Fatalf("bad state not logged:\n%s", logs)
+	}
+
+	// The provider sends the user back with an error instead of a code.
+	r = c.get("/auth/github/login")
+	loc, _ = url.Parse(r.Location)
+	state := loc.Query().Get("state")
+	cb := "/auth/github/callback?" + url.Values{
+		"state": {state}, "error": {"redirect_uri_mismatch"}, "error_description": {"The redirect_uri is not valid"},
+	}.Encode()
+	if r := c.get(cb); r.Status != http.StatusBadRequest {
+		t.Fatalf("provider error: %d", r.Status)
+	}
+	logs := e.logs.String()
+	if !strings.Contains(logs, "error=redirect_uri_mismatch") || !strings.Contains(logs, "The redirect_uri is not valid") {
+		t.Fatalf("provider error not logged:\n%s", logs)
+	}
+	if strings.Contains(logs, state) {
+		t.Fatal("state was logged")
 	}
 }
 
@@ -690,6 +731,47 @@ func TestDeleteAccountHidesNameInHistory(t *testing.T) {
 	// Balances still add up: ana owes the former member 6.00.
 	if r := ana.get(fmt.Sprintf("/groups/%d", g)); !strings.Contains(r.Body, "ana pays "+former+" <strong>6.00\u00a0EUR</strong>") {
 		t.Fatal("settle-up with former member missing")
+	}
+}
+
+// An expense that includes a former member can't be edited: the form only
+// lists active members, so saving it would drop their share.
+func TestExpenseWithFormerMemberIsLocked(t *testing.T) {
+	e := newEnv(t)
+	ana, bo := e.login("ana"), e.login("bo")
+	g := ana.createGroup("Lisbon", "EUR")
+	bo.join(ana.invite(g))
+	if r := ana.addEqualExpense(g, "Dinner", "40.00", bo.ID, ana.ID, bo.ID); r.Status != http.StatusSeeOther {
+		t.Fatalf("add expense: %d", r.Status)
+	}
+	es, _ := e.store.Expenses(context.Background(), g)
+	editPath := fmt.Sprintf("/groups/%d/expenses/%d/edit", g, es[0].ID)
+	if r := ana.get(fmt.Sprintf("/groups/%d", g)); !strings.Contains(r.Body, editPath) {
+		t.Fatal("edit link missing while everyone is active")
+	}
+	bo.mustPost("/account/delete", url.Values{"confirm": {"DELETE"}})
+
+	page := ana.get(fmt.Sprintf("/groups/%d", g))
+	if strings.Contains(page.Body, editPath) {
+		t.Error("edit link shown for an expense with a former member")
+	}
+	if !strings.Contains(page.Body, fmt.Sprintf("/groups/%d/expenses/%d/delete", g, es[0].ID)) {
+		t.Error("delete button missing")
+	}
+	if r := ana.get(editPath); r.Status != http.StatusConflict || !strings.Contains(r.Body, "left the group") {
+		t.Errorf("edit form: %d", r.Status)
+	}
+	// Posting the form directly is refused too, and nothing changes.
+	form := url.Values{
+		"description": {"Dinner fixed"}, "amount": {"40.00"}, "payer_id": {itoa(ana.ID)},
+		"spent_on": {"2026-07-01"}, "split_type": {"equal"}, "include_" + itoa(ana.ID): {"1"},
+	}
+	if r := ana.post(fmt.Sprintf("/groups/%d/expenses/%d", g, es[0].ID), form); r.Status != http.StatusConflict {
+		t.Errorf("update: %d", r.Status)
+	}
+	after, _ := e.store.Expense(context.Background(), g, es[0].ID)
+	if after.Description != "Dinner" || after.PayerID != bo.ID || len(after.Shares) != 2 {
+		t.Fatalf("expense changed: %+v", after)
 	}
 }
 

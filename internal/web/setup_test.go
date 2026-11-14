@@ -43,6 +43,9 @@ func TestSetupWithoutEnvVars(t *testing.T) {
 	if r := owner.post("/setup", withToken("wrong", githubCreds)); r.Status != http.StatusForbidden {
 		t.Fatalf("wrong token: %d", r.Status)
 	}
+	if !strings.Contains(e.logs.String(), "wrong setup token") {
+		t.Fatal("wrong setup token not logged")
+	}
 	if r := owner.post("/setup", withToken(tok, nil)); r.Status != http.StatusBadRequest || !strings.Contains(r.Body, "at least one") {
 		t.Fatalf("no providers: %d", r.Status)
 	}
@@ -58,6 +61,13 @@ func TestSetupWithoutEnvVars(t *testing.T) {
 	}
 	if p := e.srv.auth.Provider("github"); p == nil || p.Config.ClientID != "gh-ui-id" {
 		t.Fatal("GitHub provider not enabled from the UI")
+	}
+	logs := e.logs.String()
+	if !strings.Contains(logs, "login providers updated") || !strings.Contains(logs, "on=[github]") || !strings.Contains(logs, "off=[discord]") {
+		t.Fatalf("provider change not logged:\n%s", logs)
+	}
+	if strings.Contains(logs, "gh-ui-secret") || strings.Contains(logs, "gh-ui-id") {
+		t.Fatal("credentials were logged")
 	}
 
 	// Someone else logs in between setup and the owner's login: they must

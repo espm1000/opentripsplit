@@ -31,6 +31,10 @@ var (
 	ErrIdentityTaken  = errors.New("that login is already linked to another account")
 	ErrInviteExpired  = errors.New("this invite link has expired")
 	ErrInviteRevoked  = errors.New("this invite link has been revoked")
+	// ErrFormerParticipant blocks editing an expense that includes someone
+	// who has left. The form only lists active members, so saving it would
+	// drop their share or change the payer.
+	ErrFormerParticipant = errors.New("this expense includes someone who has left the group, so it can't be edited")
 )
 
 // UserError is a validation error whose message is meant for the user.
