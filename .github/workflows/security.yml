@@ -5,8 +5,8 @@ on:
     branches:
       - main
   pull_request:
-    paths:
-      - '!.github/workflows'
+    paths-ignore:
+      - '.github/workflows'
   workflow_dispatch:
 
 permissions: {}
