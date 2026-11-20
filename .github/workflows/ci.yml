@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   golangci-lint:
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -39,7 +39,7 @@ jobs:
           skip-cache: true
 
   test:
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
