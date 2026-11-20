@@ -1,0 +1,222 @@
+name: Build
+
+# Builds the Docker image and scans it on every pull request. It pushes to
+# GHCR in two cases:
+#   - workflow_dispatch with "push" ticked: tagged with the short commit SHA.
+#   - workflow_call from release.yml after release-please creates a release:
+#     tagged X.Y.Z, X.Y and latest (pre-releases get only X.Y.Z).
+# The pushed image is the exact one that was scanned: the build job saves it
+# and the publish job loads and pushes it, without rebuilding.
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      push:
+        description: Push the image to GHCR, tagged with the short commit SHA
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: Release version from release-please, e.g. 0.1.0
+        type: string
+        required: true
+
+permissions: {}
+
+# Only pull requests share a group, so a new push cancels the old run. Every
+# other run gets its own group: a release publish is never cancelled or queued.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('build-{0}', github.ref) || format('build-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Unique per run, in case runners share a Docker daemon.
+  LOCAL_IMAGE: opentripsplit:ci-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  build:
+    name: Build and scan
+    runs-on: k3s-runners-ots
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      push: ${{ steps.tags.outputs.push }}
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Work out image tags
+        id: tags
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_INPUT: ${{ inputs.push }}
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          image="ghcr.io/${REPO,,}"
+          short_sha="${GITHUB_SHA::7}"
+          tags=""
+          if [ -n "$VERSION" ]; then
+            if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::release version '$VERSION' isn't semver"
+              exit 1
+            fi
+            tags="$image:$VERSION"
+            if [ -z "${BASH_REMATCH[3]}" ]; then
+              tags="$tags $image:${BASH_REMATCH[1]}.${BASH_REMATCH[2]} $image:latest"
+            fi
+            label="$VERSION"
+          elif [ "$EVENT" = workflow_dispatch ] && [ "$PUSH_INPUT" = true ]; then
+            tags="$image:$short_sha"
+            label="$short_sha"
+          else
+            label="$short_sha"
+          fi
+          push=false
+          if [ -n "$tags" ]; then push=true; fi
+          {
+            echo "push=$push"
+            echo "tags=$tags"
+            echo "version=$label"
+          } >> "$GITHUB_OUTPUT"
+          echo "Push: $push"
+          echo "Tags: ${tags:-none}"
+
+      - name: Build image
+        env:
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          # The source label links the GHCR package to this repository.
+          docker build \
+            --label "org.opencontainers.image.source=$SOURCE" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.licenses=MIT" \
+            --tag "$LOCAL_IMAGE" .
+
+      - name: Smoke test
+        run: |
+          name="smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker run --detach --name "$name" "$LOCAL_IMAGE"
+          trap 'docker rm --force "$name" >/dev/null' EXIT
+          for _ in $(seq 1 20); do
+            if docker exec "$name" /opentripsplit healthcheck; then
+              echo "Container is healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::container didn't pass its healthcheck within 20s"
+          docker logs "$name"
+          exit 1
+
+      - name: Generate image SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ env.LOCAL_IMAGE }}
+          format: cyclonedx-json
+          output-file: opentripsplit_image.json
+          artifact-name: opentripsplit_image.json
+
+      # The file names differ from security.yml's, so SecObserve keeps the
+      # image findings and the repository findings apart.
+      - name: Send SBOM to SecObserve
+        if: ${{ !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
+        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        with:
+          so_api_token: ${{ secrets.SO_API_TOKEN }}
+          so_file_name: opentripsplit_image.json
+          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
+          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
+          so_branch_name: ${{ github.head_ref || github.ref_name }}
+
+      - name: Scan image SBOM
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: opentripsplit_image.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: cyclonedx-json
+          output-file: grype_results.json
+
+      - name: Send Grype results to SecObserve
+        if: ${{ !cancelled() && hashFiles('grype_results.json') != '' }}
+        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        with:
+          so_api_token: ${{ secrets.SO_API_TOKEN }}
+          so_file_name: grype_results.json
+          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
+          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
+          so_branch_name: ${{ github.head_ref || github.ref_name }}
+
+      - name: Save image for publishing
+        if: steps.tags.outputs.push == 'true'
+        run: docker save "$LOCAL_IMAGE" | gzip > image.tar.gz
+
+      - name: Upload image
+        if: steps.tags.outputs.push == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image
+          path: image.tar.gz
+          retention-days: 1
+
+      - name: Remove local image
+        if: always()
+        run: docker image rm --force "$LOCAL_IMAGE" || true
+
+  publish:
+    name: Push to GHCR
+    needs: build
+    if: needs.build.outputs.push == 'true'
+    runs-on: k3s-runners-ots
+    permissions:
+      packages: write
+    steps:
+      - name: Download image
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image
+
+      - name: Load image
+        run: docker load --input image.tar.gz
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+
+      - name: Push
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            docker tag "$LOCAL_IMAGE" "$tag"
+            docker push "$tag"
+          done
+          first="${TAGS%% *}"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$first")
+          {
+            echo "### Pushed to GHCR"
+            echo
+            for tag in $TAGS; do echo "- \`$tag\`"; done
+            echo
+            echo "Digest: \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up
+        if: always()
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          docker logout ghcr.io || true
+          read -ra tags <<< "$TAGS"
+          docker image rm --force "$LOCAL_IMAGE" "${tags[@]}" || true
