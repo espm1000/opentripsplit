@@ -50,7 +50,7 @@ func (s *Server) providerStates(ctx context.Context) ([]providerState, error) {
 	for _, k := range auth.Known {
 		ps := providerState{
 			Name: k.Name, Label: k.Label, EnvPrefix: strings.ToUpper(k.Name),
-			CallbackURL: s.baseURL.JoinPath("auth", k.Name, "callback").String(),
+			CallbackURL: s.baseURL.JoinPath("auth", k.Name, "callback").String(), // #nosec G125 -- k.Name is a fixed provider name from auth.Known
 		}
 		if c, ok := s.envProviders[k.Name]; ok {
 			ps.Source, ps.creds = "env", c

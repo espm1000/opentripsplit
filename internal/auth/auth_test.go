@@ -1,6 +1,11 @@
 package auth
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
 
 func TestParseGitHub(t *testing.T) {
 	u, err := parseGitHub([]byte(`{"id": 583231, "login": "octocat", "email": "octo@example.com", "avatar_url": "x"}`))
@@ -37,9 +42,41 @@ func TestSafeNext(t *testing.T) {
 		"/\n/evil.example": "",
 		"/\r/evil.example": "",
 		"/groups/\x7f":     "",
+		// http.Redirect cleans dot segments after SafeNext has looked, so
+		// these become "/\evil.example", which browsers read as
+		// //evil.example. No app path uses a backslash.
+		`/./\evil.example`:            "",
+		`/x/../\evil.example`:         "",
+		`/a/b/../../\evil.example`:    "",
+		`/groups/\..\..\evil.example`: "",
+		// A percent-encoded backslash is just a character in the path.
+		"/groups/%5C": "/groups/%5C",
 	} {
 		if got := SafeNext(in); got != want {
 			t.Errorf("SafeNext(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestSafeNextAfterRedirect checks what the browser actually receives: the
+// Location header after http.Redirect has cleaned the path.
+func TestSafeNextAfterRedirect(t *testing.T) {
+	var inputs []string
+	for _, prefix := range []string{"/", "/./", "/x/../", "/x/y/../../", "/x/..//", "/x/./"} {
+		for _, rest := range []string{`\evil.example`, `/evil.example`, `\\evil.example`, `/\evil.example`, `\/evil.example`, "groups/1"} {
+			inputs = append(inputs, prefix+rest)
+		}
+	}
+	for _, in := range inputs {
+		next := SafeNext(in)
+		if next == "" {
+			continue
+		}
+		w := httptest.NewRecorder()
+		http.Redirect(w, httptest.NewRequest("GET", "/login", nil), next, http.StatusSeeOther)
+		loc := w.Header().Get("Location")
+		if !strings.HasPrefix(loc, "/") || strings.HasPrefix(loc, "//") || strings.ContainsRune(loc, '\\') {
+			t.Errorf("SafeNext(%q) accepted it, and the redirect went to %q", in, loc)
 		}
 	}
 }

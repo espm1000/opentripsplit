@@ -33,7 +33,7 @@ func (c Config) Secure() bool { return c.BaseURL.Scheme == "https" }
 
 // CallbackURL is the OAuth redirect URL to register with a provider.
 func (c Config) CallbackURL(provider string) string {
-	return c.BaseURL.JoinPath("auth", provider, "callback").String()
+	return c.BaseURL.JoinPath("auth", provider, "callback").String() // #nosec G125 -- callers pass a fixed provider name (github, discord)
 }
 
 // Load reads the configuration using getenv (os.Getenv in production).

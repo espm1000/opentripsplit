@@ -240,7 +240,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, gc *groupC
 	s.render(w, http.StatusOK, "invite_created", inviteView{
 		base:      s.base(r, "Invite link"),
 		Group:     gc.Group,
-		URL:       s.baseURL.JoinPath("invite", token).String(),
+		URL:       s.baseURL.JoinPath("invite", token).String(), // #nosec G125 -- token is base64url from NewToken: no "/" or ".."
 		ExpiresAt: inv.ExpiresAt.Format("2 Jan 2006 15:04 MST"),
 	})
 }

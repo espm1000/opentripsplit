@@ -44,5 +44,5 @@ func (s *Server) savePrefs(w http.ResponseWriter, r *http.Request) {
 	if next == "" {
 		next = "/"
 	}
-	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // next passed SafeNext (local paths only)
+	http.Redirect(w, r, next, http.StatusSeeOther) // #nosec G710 -- next passed SafeNext: local paths only, no backslashes
 }

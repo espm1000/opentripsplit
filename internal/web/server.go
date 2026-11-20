@@ -404,7 +404,7 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
 		if next == "" {
 			next = "/groups"
 		}
-		http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // next passed SafeNext (local paths only)
+		http.Redirect(w, r, next, http.StatusSeeOther) // #nosec G710 -- next passed SafeNext: local paths only, no backslashes
 		return
 	}
 	v := loginView{base: s.base(r, "Log in"), Providers: s.auth.Providers(), Next: next}

@@ -89,8 +89,10 @@ func TestDevLogin(t *testing.T) {
 	if r := e.anon().post("/dev/login", url.Values{"user": {"mallory"}}); r.Status != http.StatusBadRequest {
 		t.Fatalf("unknown dev user: %d", r.Status)
 	}
-	if r := e.anon().devLogin(url.Values{"user": {"ryan"}, "next": {"//evil.example"}}); r.Location != "/groups" {
-		t.Fatalf("unsafe next followed: %s", r.Location)
+	for _, next := range []string{"//evil.example", `/./\evil.example`} {
+		if r := e.anon().devLogin(url.Values{"user": {"ryan"}, "next": {next}}); r.Location != "/groups" {
+			t.Fatalf("unsafe next %q followed: %s", next, r.Location)
+		}
 	}
 }
 

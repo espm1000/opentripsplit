@@ -488,6 +488,28 @@ func TestAnonymousRedirectsToLoginWithNext(t *testing.T) {
 	}
 }
 
+// TestNextCantLeaveSite covers each place that redirects to a ?next= or
+// next= value with a path http.Redirect would clean to "/\evil.example".
+func TestNextCantLeaveSite(t *testing.T) {
+	const evil = `/./\evil.example`
+	e := newEnv(t)
+
+	// After an OAuth login.
+	c := e.anon()
+	e.github.Next = "ana"
+	if resp := c.follow("/auth/github/login?next=" + url.QueryEscape(evil)); resp.Request.URL.Path != "/groups" {
+		t.Errorf("OAuth login with next=%s ended at %s", evil, resp.Request.URL)
+	}
+	// A logged-in visit to /login.
+	if r := c.get("/login?next=" + url.QueryEscape(evil)); r.Status != http.StatusSeeOther || r.Location != "/groups" {
+		t.Errorf("logged-in /login with next=%s: %d %s", evil, r.Status, r.Location)
+	}
+	// The theme and text-size form.
+	if r := c.post("/prefs", url.Values{"theme": {"dark"}, "next": {evil}}); r.Status != http.StatusSeeOther || r.Location != "/" {
+		t.Errorf("prefs with next=%s: %d %s", evil, r.Status, r.Location)
+	}
+}
+
 func TestNonMemberGets404OnEveryGroupRoute(t *testing.T) {
 	e := newEnv(t)
 	ana, bo, eve := e.login("ana"), e.login("bo"), e.login("eve")

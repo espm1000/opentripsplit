@@ -135,7 +135,7 @@ func (a *Auth) StartSession(w http.ResponseWriter, r *http.Request, userID int64
 // Cookie builds an HttpOnly, SameSite=Lax cookie, Secure when configured.
 // A zero expires deletes the cookie.
 func (a *Auth) Cookie(name, value, path string, expires time.Time) *http.Cookie {
-	c := &http.Cookie{ //nolint:gosec // Secure follows BASE_URL; HttpOnly and SameSite are always set
+	c := &http.Cookie{ // #nosec G124 -- Secure follows BASE_URL (https); HttpOnly and SameSite=Lax are always set
 		Name: name, Value: value, Path: path,
 		HttpOnly: true, Secure: a.Secure, SameSite: http.SameSiteLaxMode,
 	}
@@ -176,9 +176,12 @@ type flow struct {
 
 // SafeNext returns next if it's a same-site path, otherwise "". Control
 // characters are refused: browsers strip tabs and newlines from URLs, so
-// "/\t/evil.example" would become "//evil.example".
+// "/\t/evil.example" would become "//evil.example". Backslashes are refused
+// anywhere, not just at the start: browsers read "\" as "/", and
+// http.Redirect cleans dot segments after this check, turning
+// "/./\evil.example" into "/\evil.example". No app path contains one.
 func SafeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") ||
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.ContainsRune(next, '\\') ||
 		strings.ContainsFunc(next, unicode.IsControl) {
 		return ""
 	}
