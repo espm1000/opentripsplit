@@ -1,0 +1,44 @@
+{{define "split_fields"}}
+{{if eq .Type "equal"}}
+<fieldset>
+  <legend>Split equally between</legend>
+  {{range .Members}}
+  <label class="check"><input type="checkbox" name="include_{{.UserID}}" value="1"{{if index $.Included .UserID}} checked{{end}}> {{.Name}}</label>
+  {{end}}
+</fieldset>
+{{else}}
+<fieldset>
+  <legend>
+    {{if eq .Type "exact"}}Exact amount per person ({{.Currency}}) — must add up to the total
+    {{else if eq .Type "percent"}}Percent per person — must add up to 100
+    {{else}}Shares per person — e.g. 2 for someone who counts double
+    {{end}}
+  </legend>
+  <p class="hint">Leave blank to leave someone out.</p>
+  {{range .Members}}
+  <label class="row">
+    <span>{{.Name}}</span>
+    <input name="value_{{.UserID}}" value="{{index $.Values .UserID}}" inputmode="{{if eq $.Type "shares"}}numeric{{else}}decimal{{end}}" autocomplete="off">
+    {{if eq $.Type "percent"}}<span>%</span>{{end}}
+  </label>
+  {{end}}
+</fieldset>
+{{end}}
+{{end}}
+
+{{define "provider_fields"}}
+{{range .}}
+<fieldset class="provider">
+  <legend>{{.Label}}{{if .Source}} <span class="badge">on</span>{{end}}</legend>
+  <p class="hint">Callback URL to register with {{.Label}}: <code>{{.CallbackURL}}</code></p>
+  {{if eq .Source "env"}}
+  <p>Set by the <code>{{.EnvPrefix}}_CLIENT_ID</code> and <code>{{.EnvPrefix}}_CLIENT_SECRET</code> environment variables (client ID <code>{{.ClientID}}</code>). Change them there.</p>
+  {{else}}
+  <label>Client ID <input name="{{.Name}}_client_id" value="{{.ClientID}}" autocomplete="off"></label>
+  <label>Client secret <input type="password" name="{{.Name}}_client_secret" autocomplete="new-password"{{if .HasSecret}} placeholder="saved (leave blank to keep)"{{end}}></label>
+  <p class="hint">Leave the client ID empty to turn off {{.Label}} login.</p>
+  {{end}}
+</fieldset>
+{{end}}
+<p class="hint">Secrets entered here are stored in the database, so protect its backups. To keep them out of the database, set them as environment variables instead.</p>
+{{end}}

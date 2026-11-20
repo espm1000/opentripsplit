@@ -1,0 +1,57 @@
+name: Release
+
+# On every merge to main, release-please opens or updates a release PR from
+# the conventional commits since the last release. Merging that PR creates
+# the GitHub release and tag, and this workflow then builds, scans and pushes
+# the image tagged with the release version.
+#
+# The build is called directly rather than triggered by the release event,
+# so the image is published in the same run as the release that produced it.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: k3s-runners-ots
+    # release-please writes with RELEASE_PLEASE_TOKEN, not GITHUB_TOKEN, so
+    # its PRs start the Build and Security Scans checks.
+    permissions: {}
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check token
+        env:
+          TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::the RELEASE_PLEASE_TOKEN secret isn't set"
+            exit 1
+          fi
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+    secrets: inherit

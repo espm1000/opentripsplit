@@ -1,0 +1,19 @@
+{{define "content"}}
+<div class="title-row">
+  <h1><img class="icon" src="/static/icons/scroll.svg" alt="">History <span class="muted small">{{.Group.Name}}</span></h1>
+  <div class="actions"><a class="button secondary" href="/groups/{{.Group.ID}}">Back to group</a></div>
+</div>
+<p class="hint">Every change to this group, newest first. Deleted expenses and payments stay here.</p>
+<table class="history">
+  <tbody>
+  {{range .Rows}}
+  <tr>
+    <td class="muted small nowrap">{{datetime .At}}</td>
+    <td><strong>{{.Actor}}</strong> {{.Summary}}
+      {{range .Details}}<div class="muted small">{{.}}</div>{{end}}
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}
