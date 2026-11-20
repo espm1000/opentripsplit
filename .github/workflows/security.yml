@@ -6,7 +6,7 @@ on:
       - main
   pull_request:
     paths-ignore:
-      - '.github/workflows'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions: {}
@@ -38,7 +38,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Run Gosec
         run: |
@@ -51,13 +51,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          # Artifact names must be unique per run, so include the matrix dir.
           name: gosec_results.sarif
           path: gosec_results.sarif
       - name: Send to gosec viewer
-        if: ${{ !cancelled() && vars.GOSEC_VIEWER_URL != '' && hashFiles(format('gosec_results.sarif')) != '' }}
+        if: ${{ !cancelled() && vars.GOSEC_VIEWER_URL != '' && hashFiles('gosec_results.sarif') != '' }}
         continue-on-error: true # the viewer being down shouldn't fail the scan
-        working-directory: ${{ matrix.dir }}
         env:
           VIEWER_URL: ${{ vars.GOSEC_VIEWER_URL }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
