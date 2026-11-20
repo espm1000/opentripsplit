@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   golangci-lint:
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -34,12 +34,12 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.15.0
+          version: 'latest'
           install-mode: goinstall
           skip-cache: true
 
   test:
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
