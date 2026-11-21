@@ -116,6 +116,10 @@ func TestSimulatorHTMXFragment(t *testing.T) {
 	// terminal. Either way only the newest block is typed out, and the
 	// board comes along out of band.
 	b := step("3", "2")
+	// The live region is updated in place, so screen readers announce it.
+	if !strings.Contains(b, `<p id="sim-say" hx-swap-oob="innerHTML">`) {
+		t.Errorf("screen-reader summary should be swapped with innerHTML:\n%s", b)
+	}
 	if !strings.Contains(b, `hx-swap-oob="beforeend:#sim-term"`) || strings.Count(b, "data-type") != 1 ||
 		strings.Count(b, `class="terminal-block"`) != 1 || !strings.Contains(b, `id="sim-board" hx-swap-oob="true"`) {
 		t.Errorf("single step should append one block:\n%s", b)

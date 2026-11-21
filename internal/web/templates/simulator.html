@@ -35,7 +35,7 @@
 
 <section class="terminal" aria-label="Trip log">
   <div class="terminal-bar" aria-hidden="true"><span class="sprite terminal-icon"></span>TRIP.EXE · asset loader</div>
-  <div id="sim-term" class="terminal-lines" tabindex="0" data-auto-animate>{{template "sim_term" .}}</div>
+  <div id="sim-term" class="terminal-lines" tabindex="0" data-auto-animate data-type-ms="{{.TypeMS}}">{{template "sim_term" .}}</div>
 </section>
 
 {{template "sim_board" .}}
@@ -93,7 +93,7 @@
 {{end}}
 
 {{if .Partial}}
-<p id="sim-say" class="sr-only" aria-live="polite" hx-swap-oob="true">{{.Say}}</p>
+<p id="sim-say" hx-swap-oob="innerHTML">{{.Say}}</p>
 {{if .TermAdd}}<div hx-swap-oob="beforeend:#sim-term">{{template "sim_term_block" .LastBlock}}</div>
 {{else}}<div id="sim-term" hx-swap-oob="innerHTML">{{template "sim_term" .}}</div>{{end}}
 {{template "sim_board" .}}

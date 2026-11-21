@@ -30,9 +30,13 @@ const (
 	simExpenses = 12
 )
 
-// simDelay is the autoplay pause between steps: long enough for the coins
-// to cross and the terminal to finish typing.
-const simDelay = "2400ms"
+// simDelay is the autoplay pause between steps. sim.js types each terminal
+// block within simTypeMS (several characters per frame when a block is
+// long), so typing finishes before the next step arrives.
+const (
+	simDelay  = "2400ms"
+	simTypeMS = 1500
+)
 
 func (s *Server) registerSimRoutes(mux *http.ServeMux) {
 	if !s.simulator {
@@ -155,8 +159,9 @@ type simView struct {
 	Failures   []simFailure
 	// Term is the terminal: the boot block, then one block per step. Only
 	// the last block is typed out.
-	Term  [][]termLine
-	Delay string
+	Term   [][]termLine
+	Delay  string
+	TypeMS int // time budget for typing out one terminal block
 	// Partial is an htmx response: #sim-stage, plus out-of-band updates
 	// of the rest. After a single step forward TermAdd appends just the
 	// new terminal block; otherwise the whole terminal is replaced.
@@ -214,7 +219,7 @@ func (s *Server) simulatorPage(w http.ResponseWriter, r *http.Request) {
 
 	trip := sim.Run(q.Params)
 	q.At = min(max(q.At, 0), len(trip.Events))
-	v := &simView{base: s.base(r, "Trip simulator"), Q: q, Trip: trip, Currencies: ledger.Currencies, Steps: len(trip.Events), Delay: simDelay}
+	v := &simView{base: s.base(r, "Trip simulator"), Q: q, Trip: trip, Currencies: ledger.Currencies, Steps: len(trip.Events), Delay: simDelay, TypeMS: simTypeMS}
 	v.Done = q.At == v.Steps
 	v.Q.Play = q.Play && !v.Done
 	v.build()
@@ -313,7 +318,7 @@ func (v *simView) party(cheer bool) simScene {
 		sprite = "human-up"
 		sc.Title, sc.Caption = "Trip complete", "Everyone is square"
 		if len(v.Failures) > 0 {
-			sc.Title, sc.Caption = "Trip complete", "Some math checks failed"
+			sc.Caption = "Some math checks failed"
 		}
 	}
 	for _, p := range v.Trip.People {
