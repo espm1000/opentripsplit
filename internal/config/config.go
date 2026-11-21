@@ -29,6 +29,9 @@ type Config struct {
 	// Simulator turns on the public demo at /simulator (SIMULATOR). It
 	// replays random trips through the ledger math and saves nothing.
 	Simulator bool
+	// Debug turns on debug logging (DEBUG), including every successful
+	// /healthz request.
+	Debug bool
 }
 
 // Secure reports whether cookies should carry the Secure flag.
@@ -93,6 +96,7 @@ func Load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
 	}
 	c.Simulator = flag("SIMULATOR")
+	c.Debug = flag("DEBUG")
 
 	if (c.GitHubID == "") != (c.GitHubSecret == "") {
 		errs = append(errs, errors.New("set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, or neither"))

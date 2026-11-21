@@ -91,6 +91,18 @@ func TestDevLocalAuth(t *testing.T) {
 	}
 }
 
+func TestDebug(t *testing.T) {
+	if c, _ := Load(env(map[string]string{})); c.Debug {
+		t.Error("debug on by default")
+	}
+	if c, err := Load(env(map[string]string{"DEBUG": "true"})); err != nil || !c.Debug {
+		t.Errorf("DEBUG=true: Debug = %v, err = %v", c.Debug, err)
+	}
+	if _, err := Load(env(map[string]string{"DEBUG": "verbose"})); err == nil {
+		t.Error("bad DEBUG value accepted")
+	}
+}
+
 func TestSimulator(t *testing.T) {
 	if c, _ := Load(env(map[string]string{})); c.Simulator {
 		t.Error("simulator on by default")

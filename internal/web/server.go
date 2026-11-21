@@ -210,7 +210,9 @@ func (w *statusWriter) WriteHeader(code int) {
 }
 
 // logRequests logs method, path, status and duration. It never logs IP
-// addresses, and redacts invite tokens from paths.
+// addresses, and redacts invite tokens from paths. Successful health checks
+// come every few seconds from container and load balancer probes, so they
+// are logged at debug level (DEBUG) only.
 func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -220,7 +222,11 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if strings.HasPrefix(path, "/invite/") {
 			path = "/invite/[token]"
 		}
-		s.log.Info("request", "method", r.Method, "path", path, "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
+		level := slog.LevelInfo
+		if path == "/healthz" && sw.status == http.StatusOK {
+			level = slog.LevelDebug
+		}
+		s.log.Log(r.Context(), level, "request", "method", r.Method, "path", path, "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
 	})
 }
 

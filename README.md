@@ -89,6 +89,7 @@ All settings come from environment variables:
 | `SESSION_TTL` | `720h` | How long a login lasts. |
 | `INVITE_TTL` | `168h` | How long invite links stay valid. |
 | `DEV_LOCAL_AUTH` | off | Password-less dev login with test users. Refused unless `BASE_URL` is localhost. Never in production. |
+| `DEBUG` | off | Debug logging, including every successful `/healthz` request (left out at the default info level). |
 | `SIMULATOR` | off | Public demo at `/simulator` that plays random trips through the split/balance math. Nothing is saved. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | | GitHub OAuth app (optional; can be set in the UI). |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | | Discord OAuth app (optional; can be set in the UI). |

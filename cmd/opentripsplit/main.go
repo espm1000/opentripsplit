@@ -26,17 +26,22 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		os.Exit(healthcheck())
 	}
-	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	if err := run(log); err != nil {
+	// The level is raised to debug once config is loaded, if DEBUG is on.
+	level := new(slog.LevelVar)
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	if err := run(log, level); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger) error {
+func run(log *slog.Logger, level *slog.LevelVar) error {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		return err
+	}
+	if cfg.Debug {
+		level.Set(slog.LevelDebug)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
