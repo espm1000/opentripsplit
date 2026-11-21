@@ -10,18 +10,22 @@
 <link rel="preload" href="/static/fonts/pixelify-sans-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
+{{block "head" .}}{{end}}
 </head>
 <body>
 {{if .DevAuth}}<div class="dev-banner">Dev login is on (DEV_LOCAL_AUTH). Never enable it in production.</div>{{end}}
 <header class="top">
   <a class="brand" href="/"><img class="icon" src="/static/icons/logo.svg" alt="">OpenTripSplit</a>
-  {{with .User}}
+  {{if or .User .Sim}}
   <nav>
+    {{if .Sim}}<a href="/simulator">Simulator</a>{{end}}
+    {{with .User}}
     <a href="/groups">Groups</a>
     {{if .IsAdmin}}<a href="/admin">Admin</a>{{end}}
     {{if $.DevAuth}}<a href="/login?switch=1">Switch user</a>{{end}}
     <a href="/account">{{.DisplayName}}</a>
     <form method="post" action="/logout" class="inline"><button class="link">Log out</button></form>
+    {{end}}
   </nav>
   {{end}}
 </header>

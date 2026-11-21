@@ -51,7 +51,7 @@ func run(log *slog.Logger) error {
 	// Providers come from env vars and/or the database (set up at /setup).
 	srv, err := web.New(ctx, st, a, web.Options{
 		BaseURL: cfg.BaseURL, InviteTTL: cfg.InviteTTL, EnvProviders: cfg.EnvProviders(),
-		DevLocalAuth: cfg.DevLocalAuth, Log: log,
+		DevLocalAuth: cfg.DevLocalAuth, Simulator: cfg.Simulator, Log: log,
 	})
 	if err != nil {
 		return err

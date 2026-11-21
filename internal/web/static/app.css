@@ -5,10 +5,14 @@
  * - no pure white or pure black: peak contrast is about 13-14:1, not 21:1
  * - every text colour is >= 7:1 (WCAG AAA) on --bg, --surface, --notice
  *   and --chip; borders >= 3:1. theme_test.go enforces this.
- * - the pixel font is only used large (headings, buttons); body text uses
+ * - the pixel font is only used large (headings, buttons, the simulator's
+ *   terminal); body text uses
  *   Atkinson Hyperlegible Next, designed for low vision
  * - no textures, scanlines, glow, blur or text shadows; the only motion is
- *   the button press, and prefers-reduced-motion turns that off
+ *   the button press, plus the simulator page: coins crossing, typed
+ *   terminal text, short fades, slides and pulses (Animate.css, AutoAnimate,
+ *   typewriter-effect, view transitions; never flashing or shaking).
+ *   prefers-reduced-motion turns all of it off
  * - meaning is never carried by colour alone
  */
 
@@ -56,6 +60,13 @@
   --on-danger: #FAF4E4;
   --link: #1A4475;
   --focus: #244A70;
+  /* The simulator's terminal is dark in both themes. */
+  --term-bg: #17161C;
+  --term-text: #E6E1D3;
+  --term-dim: #B8B1A0;
+  --term-prompt: #F2C14E;
+  --term-ok: #9AD48F;
+  --term-fail: #F4978E;
 }
 
 /* Night (dark) palette: used when the device prefers dark and the user
@@ -80,6 +91,12 @@
     --on-danger: #1C1B22;
     --link: #9CCFF2;
     --focus: #F2C14E;
+    --term-bg: #17161C;
+    --term-text: #E6E1D3;
+    --term-dim: #B8B1A0;
+    --term-prompt: #F2C14E;
+    --term-ok: #9AD48F;
+    --term-fail: #F4978E;
   }
 }
 :root[data-theme="dark"] {
@@ -100,6 +117,12 @@
   --on-danger: #1C1B22;
   --link: #9CCFF2;
   --focus: #F2C14E;
+  --term-bg: #17161C;
+  --term-text: #E6E1D3;
+  --term-dim: #B8B1A0;
+  --term-prompt: #F2C14E;
+  --term-ok: #9AD48F;
+  --term-fail: #F4978E;
 }
 
 /* Text size. Everything below is in rem/em, so the layout scales. */
@@ -366,9 +389,124 @@ button.link.danger { color: var(--danger); background: none; }
 details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-weight: 700; }
 .dev-login { border-top: var(--bw) dashed var(--border); margin-top: 1.25rem; padding-top: 0.5rem; }
 
+/* Simulator (simulator.html). Art and motion come from vendored
+   libraries: pixelarticons sprites (drawn through CSS masks so they take
+   the theme's colors), the app's coin icon, Animate.css classes the server
+   picks, typewriter-effect and AutoAnimate in the terminal, and htmx view
+   transitions, which slide each player's row to its new rank. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+#sim-stage { --animate-duration: 600ms; }
+.sim-controls { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+
+/* Pixelarticons are drawn on a 24px grid; 72px and 48px keep every pixel
+   a whole number of screen pixels. */
+.sprite {
+  display: inline-block; flex: none; width: 72px; height: 72px;
+  background: currentColor;
+  mask: url("sprites/human.svg") center / contain no-repeat;
+}
+.sprite.human-up { mask-image: url("sprites/human-arms-up.svg"); }
+.sprite.store { mask-image: url("sprites/store.svg"); }
+.sprite.terminal-icon { width: 24px; height: 24px; mask-image: url("sprites/terminal.svg"); }
+
+/* The transfer window: a dialog with a title bar, like a file copy. */
+.card.sim-window { padding: 0; }
+.sim-window-bar {
+  padding: 0.35rem 0.9rem;
+  font-family: var(--pixel); font-weight: 700; font-size: 1.1rem;
+  background: var(--accent); color: var(--on-accent);
+}
+.sim-transfer { display: flex; align-items: flex-start; gap: 0.5rem; padding: 1rem 1rem 0; }
+.sim-actor { margin: 0; display: grid; justify-items: center; gap: 0.25rem; width: 7.5rem; text-align: center; }
+.sim-actor figcaption { font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.sim-transfer .sim-actor:last-child .sprite { color: var(--accent); }
+.sim-party { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem 0.5rem; padding: 1rem 1rem 0; }
+.sim-party .sprite { width: 48px; height: 48px; }
+.sim-caption { max-width: none; margin: 0; padding: 0.75rem 1rem 0; }
+.sim-progress { display: grid; gap: 0.3rem; padding: 0.5rem 1rem 1rem; }
+.sim-progress progress { width: 100%; height: 1.25rem; accent-color: var(--accent); }
+
+/* Coins hop from one sprite to the other in a stream, in a few chunky
+   steps rather than smoothly. cqw is the lane's width. */
+.sim-lane { position: relative; flex: 1; min-width: 4rem; height: 72px; container-type: inline-size; }
+.sim-lane .coin {
+  position: absolute; left: 0; top: 24px; width: 36px; height: 36px; margin: 0;
+  image-rendering: pixelated; opacity: 0;
+  animation: sim-coin 1.5s steps(5) both;
+}
+.sim-lane .c2 { animation-delay: 0.5s; }
+.sim-lane .c3 { animation-delay: 1s; }
+.sim-lane.loop .coin { animation-iteration-count: infinite; }
+@keyframes sim-coin {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 1; }
+  50% { transform: translate(calc(50cqw - 18px), -20px); }
+  88% { opacity: 1; }
+  100% { transform: translate(calc(100cqw - 36px), 0); opacity: 0; }
+}
+
+.sim-banner {
+  max-width: none; margin: 0 var(--bw) 1.5rem; padding: 0.75rem 1rem;
+  font-family: var(--pixel); font-size: 1.6rem; font-weight: 700; text-align: center;
+  background: var(--accent); color: var(--on-accent);
+}
+.sim-banner.fail { background: var(--danger); color: var(--on-danger); }
+
+/* The terminal logs each step as if it were loading a game asset. */
+.terminal {
+  margin: var(--bw) var(--bw) 1.5rem;
+  background: var(--term-bg); color: var(--term-text);
+  box-shadow:
+    0 calc(-1 * var(--bw)) 0 0 var(--border),
+    0 var(--bw) 0 0 var(--border),
+    calc(-1 * var(--bw)) 0 0 0 var(--border),
+    var(--bw) 0 0 0 var(--border);
+}
+.terminal-bar {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.9rem;
+  font-family: var(--pixel); color: var(--term-dim);
+  border-bottom: var(--bw) solid var(--term-dim);
+}
+.terminal-lines {
+  font-family: var(--pixel); font-size: 1.1rem; line-height: 1.5; letter-spacing: 0.03em;
+  padding: 0.75rem 1rem; height: 18rem; overflow-y: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.terminal-block + .terminal-block { margin-top: 0.6rem; }
+.terminal-line.prompt { color: var(--term-prompt); font-weight: 700; }
+.terminal-line.ok { color: var(--term-ok); }
+.terminal-line.fail { color: var(--term-fail); font-weight: 700; }
+.Typewriter__cursor { color: var(--term-prompt); animation: term-blink 1s steps(1) infinite; }
+@keyframes term-blink { 50% { opacity: 0; } }
+
+.sim-delta { font-weight: 700; }
+.badge.pass { color: var(--pos); }
+.badge.fail { color: var(--danger); }
+.sim-checks li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline; }
+.sim-checks .badge { margin-left: 0; }
+/* One name per player (at most 8, see sim.MaxPeople). They have to be
+   classes: the CSP blocks inline styles. */
+.vt-p1 { view-transition-name: sim-p1; }
+.vt-p2 { view-transition-name: sim-p2; }
+.vt-p3 { view-transition-name: sim-p3; }
+.vt-p4 { view-transition-name: sim-p4; }
+.vt-p5 { view-transition-name: sim-p5; }
+.vt-p6 { view-transition-name: sim-p6; }
+.vt-p7 { view-transition-name: sim-p7; }
+.vt-p8 { view-transition-name: sim-p8; }
+::view-transition-group(*) { animation-duration: 450ms; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
   button:active, .button:active { transform: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  /* One coin, parked halfway. */
+  .sim-lane .coin { animation: none; }
+  .sim-lane .c1 { opacity: 1; left: calc(50% - 18px); }
+  .Typewriter__cursor { animation: none; }
 }
 
 /* Narrow screens (phones, or large text): tables become stacked rows. */
