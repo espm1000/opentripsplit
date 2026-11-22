@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/espm1000/opentripsplit/compare/v0.1.0...v0.2.0) (2026-11-22)
+
+
+### Features
+
+* **simulator:** add expense simulator behind SIMULATOR flag ([dd4e732](https://github.com/espm1000/opentripsplit/commit/dd4e732a1773ac5c4c7435160d19b791aaa158ca))
+* **simulator:** add expenses and payments ([20a4b2a](https://github.com/espm1000/opentripsplit/commit/20a4b2ad223e8b441a4e7010ee3f9f60217078bd))
+* **simulator:** add simulator for demo and testing ([19f3d57](https://github.com/espm1000/opentripsplit/commit/19f3d57ed8670870a55ae774ec887e050d0644b8))
+* **simulator:** remove fade effect ([a143204](https://github.com/espm1000/opentripsplit/commit/a143204f462e9796c7ae0411b42fc25c182e2408))
+
+
+### Bug Fixes
+
+* **logging:** log healthz successes at debug ([5a897c3](https://github.com/espm1000/opentripsplit/commit/5a897c3509ef4465688419f3282920e1fe7426cd))
+* race conditions ([3243b3f](https://github.com/espm1000/opentripsplit/commit/3243b3f35887e9de14770b51715a2e0c9e3f592b))
+
 ## 0.1.0 (2026-11-20)
 
 
