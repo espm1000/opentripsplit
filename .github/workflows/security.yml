@@ -15,8 +15,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job skips release-please PRs (head branch release-please--…) and the
+# push to main that merges one. Those only touch CHANGELOG.md and the version
+# manifest, and the code was already scanned on its own PR and merge. The jobs
+# are skipped rather than the workflow filtered out, so required checks still
+# pass. The condition is defined once below and reused with a YAML alias.
 jobs:
   govulncheck:
+    if: &not-release-please ${{ !startsWith(github.head_ref, 'release-please--') && !contains(github.event.head_commit.message, '/release-please--') }}
     permissions:
       contents: read
     runs-on: k3s-runners-ots
@@ -26,6 +32,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
   gosec:
+    if: *not-release-please
     permissions:
       contents: read
       actions: read
@@ -66,6 +73,7 @@ jobs:
           curl -sS --fail-with-body -X PUT -H 'Content-Type: application/json' \
             --data-binary @gosec_results.sarif "${VIEWER_URL}/api/reports/${name}"
   sbom-and-grype:
+    if: *not-release-please
     runs-on: k3s-runners-ots
     permissions:
       actions: read
@@ -111,6 +119,7 @@ jobs:
           so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
           so_branch_name: ${{ github.head_ref || github.ref_name }}
   trufflehog:
+    if: *not-release-please
     runs-on: k3s-runners-ots
     permissions:
       contents: read
