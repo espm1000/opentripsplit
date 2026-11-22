@@ -39,6 +39,16 @@ func TestSimulatorPublic(t *testing.T) {
 	if !strings.Contains(start.Body, `href="/simulator"`) || !strings.Contains(start.Body, "/static/animate.min.css") {
 		t.Error("page lacks the nav link or the simulator stylesheet")
 	}
+	// The newest terminal block is hidden until sim.js types it, so
+	// without JavaScript a stylesheet shows it instead.
+	if !strings.Contains(start.Body, `<noscript><link rel="stylesheet" href="/static/sim-noscript.css"></noscript>`) {
+		t.Error("page lacks the no-JavaScript stylesheet")
+	}
+	for _, f := range []string{"sim.js", "typewriter.min.js", "animate.min.css", "sim-noscript.css"} {
+		if r := c.get("/static/" + f); r.Status != http.StatusOK {
+			t.Errorf("/static/%s: %d", f, r.Status)
+		}
+	}
 	if strings.Contains(start.Body, "<script>") || strings.Contains(start.Body, "style=") {
 		t.Error("inline script or style in page (blocked by CSP)")
 	}

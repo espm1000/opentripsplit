@@ -10,8 +10,8 @@
  *   Atkinson Hyperlegible Next, designed for low vision
  * - no textures, scanlines, glow, blur or text shadows; the only motion is
  *   the button press, plus the simulator page: coins crossing, typed
- *   terminal text, short slides and pulses (Animate.css, AutoAnimate,
- *   typewriter-effect, view transitions; never flashing or shaking).
+ *   terminal text, short slides and pulses (Animate.css, typewriter-effect,
+ *   view transitions; never flashing or shaking).
  *   prefers-reduced-motion turns all of it off
  * - meaning is never carried by colour alone
  */
@@ -438,8 +438,8 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
 /* Simulator (simulator.html). Art and motion come from vendored
    libraries: pixelarticons sprites (drawn through CSS masks so they take
    the theme's colors), the app's coin icon, Animate.css classes the server
-   picks, typewriter-effect and AutoAnimate in the terminal, and htmx view
-   transitions, which slide each player's row to its new rank. */
+   picks, typewriter-effect in the terminal, and htmx view transitions,
+   which slide each player's row to its new rank. */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
@@ -522,6 +522,9 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .terminal-block + .terminal-block { margin-top: 0.6rem; }
+/* Hidden until sim.js starts typing it, so the full text never flashes
+   first. sim-noscript.css shows it when JavaScript is off. */
+.terminal-block[data-type]:not([data-typed]) { display: none; }
 .terminal-line.prompt { color: var(--term-prompt); font-weight: 700; }
 .terminal-line.ok { color: var(--term-ok); }
 .terminal-line.fail { color: var(--term-fail); font-weight: 700; }

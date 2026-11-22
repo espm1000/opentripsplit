@@ -2,6 +2,7 @@
 <link rel="stylesheet" href="/static/animate.min.css">
 <script src="/static/typewriter.min.js" defer></script>
 <script type="module" src="/static/sim.js"></script>
+<noscript><link rel="stylesheet" href="/static/sim-noscript.css"></noscript>
 {{end}}
 
 {{define "content"}}
@@ -36,7 +37,7 @@
 
 <section class="terminal" aria-label="Trip log">
   <div class="terminal-bar" aria-hidden="true"><span class="sprite terminal-icon"></span>TRIP.EXE · asset loader</div>
-  <div id="sim-term" class="terminal-lines" tabindex="0" data-auto-animate data-type-ms="{{.TypeMS}}">{{template "sim_term" .}}</div>
+  <div id="sim-term" class="terminal-lines" tabindex="0" data-type-ms="{{.TypeMS}}">{{template "sim_term" .}}</div>
 </section>
 
 {{template "sim_board" .}}

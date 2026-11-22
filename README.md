@@ -245,7 +245,6 @@ The JavaScript and CSS libraries are vendored unmodified into `internal/web/stat
 
 - htmx 2.0.11 (`htmx.min.js`)
 - Animate.css 4.1.1 (`animate.min.css`)
-- `@formkit/auto-animate` 0.10.2 (`index.min.js`, saved as `auto-animate.min.js`)
 - typewriter-effect 2.22.0 (`dist/core.js`, saved as `typewriter.min.js`). Stay on 2.x: it is MIT, and the `skipAddStyles` option keeps it CSP-clean.
 - pixelarticons 2.4.2 (four SVGs in `sprites/`)
 
