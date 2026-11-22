@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/espm1000/opentripsplit/compare/v0.2.0...v0.3.0) (2026-11-22)
+
+
+### Features
+
+* add version number to page footers ([b86bd3d](https://github.com/espm1000/opentripsplit/commit/b86bd3db9b5273452f231c35f628cb4c6e7001b6))
+* **ui:** restyle expenses and header, show version to logged-in users ([ac56308](https://github.com/espm1000/opentripsplit/commit/ac56308c7ff6e8fa0c562196a4af93bc3503988c))
+* **ui:** update layout and stylize menu ([175fae7](https://github.com/espm1000/opentripsplit/commit/175fae7af07f4b05329da1d31b6ae4a70e40bb14))
+
+
+### Bug Fixes
+
+* **simulator:** drop autoanimate to handle terminal rendering ([7900499](https://github.com/espm1000/opentripsplit/commit/790049950e928c9aad8f570c87dc55b624b552a1))
+* **version:** mode version footer to only logged in users ([6978ed1](https://github.com/espm1000/opentripsplit/commit/6978ed14684518bf8fce88e1b4c55e2fbd645d99))
+
 ## [0.2.0](https://github.com/espm1000/opentripsplit/compare/v0.1.0...v0.2.0) (2026-11-22)
 
 
