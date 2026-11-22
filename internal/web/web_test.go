@@ -825,9 +825,15 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestFooterVersion(t *testing.T) {
-	e := newEnvWith(t, nil, func(o *Options) { o.Version = "1.2.3" })
-	if r := e.anon().get("/login"); !strings.Contains(r.Body, `<div class="version">Version 1.2.3</div>`) {
-		t.Errorf("login page footer lacks the version:\n%s", r.Body)
+	e := newEnvWith(t, map[string]config.OAuthCreds{"github": {ClientID: "gh-id", ClientSecret: "gh-secret"}},
+		func(o *Options) { o.Version = "1.2.3" })
+	const want = `<div class="version">Version 1.2.3</div>`
+	// Logged-out visitors don't learn which release is running.
+	if r := e.anon().get("/login"); strings.Contains(r.Body, "1.2.3") {
+		t.Errorf("login page shows the version to a logged-out visitor:\n%s", r.Body)
+	}
+	if r := e.login("ana").get("/groups"); !strings.Contains(r.Body, want) {
+		t.Errorf("groups page footer lacks the version:\n%s", r.Body)
 	}
 }
 

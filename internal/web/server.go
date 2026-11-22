@@ -39,7 +39,9 @@ type Options struct {
 	DevLocalAuth bool
 	// Simulator turns on the public demo at /simulator (see simulator.go).
 	Simulator bool
-	// Version is shown in every page's footer.
+	// Version is shown in the footer to logged-in users only, so anonymous
+	// visitors can't tell which release (and which known bugs) an instance
+	// runs.
 	Version string
 	Log     *slog.Logger
 }
@@ -250,7 +252,7 @@ type base struct {
 	Theme   string // system, dark or light (see prefs.go)
 	Size    string // normal, large or huge
 	Path    string // where the preferences form returns to
-	Version string // release version, or commit SHA for a branch build
+	Version string // release version or commit SHA; empty when logged out
 }
 
 // Themes and TextSizes feed the preferences form in the header.
@@ -259,7 +261,7 @@ func (base) TextSizes() []string { return textSizes }
 
 func (s *Server) base(r *http.Request, title string) base {
 	b := base{
-		Title: title, DevAuth: s.devAuth, Sim: s.simulator, Version: s.version,
+		Title: title, DevAuth: s.devAuth, Sim: s.simulator,
 		Theme: pref(r, themeCookie, themes), Size: pref(r, sizeCookie, textSizes),
 		Path: "/",
 	}
@@ -269,6 +271,7 @@ func (s *Server) base(r *http.Request, title string) base {
 	}
 	if u, ok := auth.UserFrom(r.Context()); ok {
 		b.User = &u
+		b.Version = s.version
 	}
 	return b
 }
