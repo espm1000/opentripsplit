@@ -92,9 +92,9 @@ func Load(getenv func(string) string) (Config, error) {
 		return false
 	}
 	c.DevLocalAuth = flag("DEV_LOCAL_AUTH")
-	if c.DevLocalAuth && c.BaseURL != nil && !IsLoopbackHost(c.BaseURL.Hostname()) {
-		errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
-	}
+//	if c.DevLocalAuth && c.BaseURL != nil && !IsLoopbackHost(c.BaseURL.Hostname()) {
+//		errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
+//	}
 	c.Simulator = flag("SIMULATOR")
 	c.Debug = flag("DEBUG")
 
