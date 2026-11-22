@@ -20,7 +20,7 @@ on:
         type: boolean
         default: false
       skip_security:
-        description: Skip all security scanning, then build and push to GHCR (implies push)
+        description: Skip security scans
         type: boolean
         default: false
   workflow_call:
