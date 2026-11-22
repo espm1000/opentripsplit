@@ -45,11 +45,13 @@ func (s *Server) registerSimRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /simulator", s.simulatorPage)
 }
 
-// simQuery is a simulator URL: a trip and how far into it we are.
+// simQuery is a simulator URL: a trip, how far into it we are, and how
+// it is shown.
 type simQuery struct {
 	sim.Params
-	At   int
-	Play bool
+	At     int
+	Play   bool
+	Checks bool // show the math checks panel (hidden by default)
 }
 
 func (q simQuery) URL() string {
@@ -63,6 +65,9 @@ func (q simQuery) URL() string {
 	v.Set("at", strconv.Itoa(q.At))
 	if q.Play {
 		v.Set("play", "1")
+	}
+	if q.Checks {
+		v.Set("checks", "1")
 	}
 	return "/simulator?" + v.Encode()
 }
@@ -81,7 +86,7 @@ var (
 // parseSimQuery reads a simulator URL. People and Expenses are clamped;
 // At is clamped once the trip's length is known.
 func parseSimQuery(v url.Values) (simQuery, error) {
-	q := simQuery{Params: sim.Params{People: simPeople, Expenses: simExpenses}, Play: v.Get("play") == "1"}
+	q := simQuery{Params: sim.Params{People: simPeople, Expenses: simExpenses}, Play: v.Get("play") == "1", Checks: v.Get("checks") == "1"}
 	num := func(key string, dst *int) error {
 		if s := v.Get(key); s != "" {
 			n, err := strconv.Atoi(s)
@@ -141,6 +146,26 @@ type simFailure struct {
 	Check sim.Check
 }
 
+// simExpenseRow and simPaymentRow mirror the Expenses and Payments cards on
+// the group page. New marks the row added at the current step.
+type simExpenseRow struct {
+	Day         int
+	Description string
+	Split       string
+	Payer       string
+	Amount      string
+	New         bool
+}
+
+type simPaymentRow struct {
+	Day      int
+	From     string
+	To       string
+	Amount   string
+	SettleUp bool
+	New      bool
+}
+
 type simView struct {
 	base
 	Q          simQuery
@@ -153,6 +178,8 @@ type simView struct {
 	Board      []balanceRow
 	Changed    map[int64]int64
 	Suggest    []string
+	Expenses   []simExpenseRow // newest first
+	Payments   []simPaymentRow // newest first
 	Checks     []sim.Check
 	Passed     int // checks passed in steps 1..At
 	Total      int
@@ -164,10 +191,17 @@ type simView struct {
 	TypeMS int // time budget for typing out one terminal block
 	// Partial is an htmx response: #sim-stage, plus out-of-band updates
 	// of the rest. After a single step forward TermAdd appends just the
-	// new terminal block; otherwise the whole terminal is replaced.
-	Partial bool
-	TermAdd bool
+	// new terminal block. On the same step (Pause, the checks toggle)
+	// TermKeep leaves the terminal alone, so it isn't typed out again.
+	// Otherwise the whole terminal is replaced.
+	Partial  bool
+	TermAdd  bool
+	TermKeep bool
 }
+
+// ShowChecks says whether the math checks panel is shown. A failed check
+// always shows it.
+func (v *simView) ShowChecks() bool { return v.Q.Checks || len(v.Failures) > 0 }
 
 func (v *simView) Money(n int64) string {
 	return ledger.FormatAmount(n, v.Trip.Currency.Decimals) + "\u00a0" + v.Trip.Currency.Code
@@ -194,11 +228,21 @@ func (v *simView) RestartLink() string { return v.link(0, false) }
 func (v *simView) ReplayLink() string  { return v.link(1, true) }
 func (v *simView) EndLink() string     { return v.link(v.Steps, false) }
 
+// ChecksLink flips the math checks panel, staying on the same step.
+func (v *simView) ChecksLink() string {
+	q := v.Q
+	q.Checks = !q.Checks
+	return q.URL()
+}
+
 // NewTrip is a link to a fresh seed with the same settings.
 func (v *simView) NewTrip() string {
 	q := url.Values{"people": {strconv.Itoa(v.Q.People)}, "expenses": {strconv.Itoa(v.Q.Expenses)}}
 	if v.Q.Currency != "" {
 		q.Set("currency", v.Q.Currency)
+	}
+	if v.Q.Checks {
+		q.Set("checks", "1")
 	}
 	return "/simulator?" + q.Encode()
 }
@@ -233,8 +277,14 @@ func (s *Server) simulatorPage(w http.ResponseWriter, r *http.Request) {
 	// A history restore after a cache miss wants the whole page.
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-History-Restore-Request") != "true" {
 		v.Partial = true
-		if prev, ok := simCurrent(r); ok && prev.Params == q.Params && prev.At == q.At-1 {
-			v.TermAdd = true
+		if prev, ok := simCurrent(r); ok && prev.Params == q.Params {
+			// prev.At comes straight from the URL, so clamp it like q.At.
+			switch min(max(prev.At, 0), v.Steps) {
+			case q.At - 1:
+				v.TermAdd = true
+			case q.At:
+				v.TermKeep = true
+			}
 		}
 		s.renderTemplate(w, http.StatusOK, "simulator", "sim_step", v)
 		return
@@ -278,6 +328,9 @@ func (v *simView) build() {
 			settle++
 		}
 		v.Term = append(v.Term, v.termBlock(ev, settle, settles))
+	}
+	for i := len(events) - 1; i >= 0; i-- {
+		v.addRow(events[i], i == len(events)-1)
 	}
 
 	balances := map[int64]int64{}
@@ -348,6 +401,26 @@ func (v *simView) scene(ev sim.Event, settle, settles int) simScene {
 		sc.Caption = fmt.Sprintf("Settle-up payment %d of %d: %s pays %s", settle, settles, v.Name(p.From), v.Name(p.To))
 	}
 	return sc
+}
+
+// addRow adds ev to the Expenses or Payments card.
+func (v *simView) addRow(ev sim.Event, isNew bool) {
+	if e := ev.Expense; e != nil {
+		parts := make([]string, len(e.Portions))
+		for i, p := range e.Portions {
+			parts[i] = v.Name(p.UserID) + " " + v.Money(p.Amount)
+		}
+		v.Expenses = append(v.Expenses, simExpenseRow{
+			Day: ev.Day, Description: e.Description, Split: string(e.SplitType) + ": " + strings.Join(parts, ", "),
+			Payer: v.Name(e.PayerID), Amount: v.Money(e.Amount), New: isNew,
+		})
+		return
+	}
+	p := ev.Payment
+	v.Payments = append(v.Payments, simPaymentRow{
+		Day: ev.Day, From: v.Name(p.From), To: v.Name(p.To), Amount: v.Money(p.Amount),
+		SettleUp: ev.Kind == sim.KindSettle, New: isNew,
+	})
 }
 
 func splitSummary(e *sim.Expense) string {

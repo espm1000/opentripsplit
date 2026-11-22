@@ -57,13 +57,15 @@ This adds a public **Simulator** page at `/simulator`; no login is needed. Pixel
 - the odd part payment mid-trip
 - the suggested settle-up payments, until everyone is square
 
-You can step through it or let it autoplay. Each step runs the real `internal/ledger` code and checks the math:
+You can step through it or let it autoplay. As it goes, the page fills in the same high-score board, Settle up, Expenses and Payments cards as a real group.
+
+Each step runs the real `internal/ledger` code and checks the math:
 
 - splits add up and round fairly
 - balances sum to zero
 - settle-up clears every balance
 
-A failed check is shown on the page and logged.
+The results are hidden by default; **Show math checks** turns the panel on (`checks=1` in the URL). A failed check always shows the panel, and is logged.
 
 It is **off by default**. When on, it is stateless and **saves nothing**: each trip comes from a seed in the URL, so the same link always replays the same trip. That makes a link to any step good for sharing or for reproducing a bug. The same checks run on thousands of seeds in `go test ./internal/sim`, and `go test -fuzz=FuzzRun ./internal/sim` keeps looking for more.
 

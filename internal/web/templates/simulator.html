@@ -22,6 +22,7 @@
         {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Q.Currency}} selected{{end}}>{{.Code}}</option>{{end}}
       </select>
     </label>
+    {{if .Q.Checks}}<input type="hidden" name="checks" value="1">{{end}}
     <button>Load trip</button>
   </form>
   <p class="hint">The same settings always play the same trip, so a link to any step can be shared or replayed.</p>
@@ -55,6 +56,7 @@
   <a class="button secondary" href="{{.EndLink}}" hx-get="{{.EndLink}}">Skip to end</a>
   {{end}}
   {{if .Q.At}}<a class="button secondary" href="{{.RestartLink}}" hx-get="{{.RestartLink}}">Restart</a>{{end}}
+  <a class="button secondary" href="{{.ChecksLink}}" hx-get="{{.ChecksLink}}">{{if .Q.Checks}}Hide math checks{{else}}Show math checks{{end}}</a>
 </div>
 {{if .Q.Play}}<div hidden hx-get="{{.PlayLink}}" hx-trigger="load delay:{{.Delay}}" hx-push-url="false" hx-replace-url="true"></div>{{end}}
 
@@ -95,7 +97,7 @@
 {{if .Partial}}
 <p id="sim-say" hx-swap-oob="innerHTML">{{.Say}}</p>
 {{if .TermAdd}}<div hx-swap-oob="beforeend:#sim-term">{{template "sim_term_block" .LastBlock}}</div>
-{{else}}<div id="sim-term" hx-swap-oob="innerHTML">{{template "sim_term" .}}</div>{{end}}
+{{else if not .TermKeep}}<div id="sim-term" hx-swap-oob="innerHTML">{{template "sim_term" .}}</div>{{end}}
 {{template "sim_board" .}}
 {{end}}
 {{end}}
@@ -137,6 +139,46 @@
 </div>
 
 <section class="card">
+  <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
+  {{if .Expenses}}
+  <table class="expenses">
+    <thead><tr><th>Day</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {{range .Expenses}}
+    <tr{{if .New}} class="sim-new animate__animated animate__fadeIn"{{end}}>
+      <td class="nowrap">Day {{.Day}}</td>
+      <td>{{.Description}}
+        <div class="muted small">{{.Split}}</div>
+      </td>
+      <td class="who" data-label="Paid by">{{.Payer}}</td>
+      <td class="num">{{.Amount}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No expenses yet.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments</h2>
+  {{if .Payments}}
+  <ul class="list rows">
+    {{range .Payments}}
+    <li{{if .New}} class="sim-new animate__animated animate__fadeIn"{{end}}>
+      <span class="row-text">{{.From}} paid {{.To}} <strong>{{.Amount}}</strong> <span class="muted small nowrap">day {{.Day}}</span></span>
+      <span class="row-act">{{if .SettleUp}}<span class="badge">settle-up</span>{{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">No payments recorded.</p>
+  {{end}}
+</section>
+
+{{if .ShowChecks}}
+<section class="card">
   <h2><img class="icon" src="/static/icons/key.svg" alt="">Math checks</h2>
   <p><strong>{{.Passed}} of {{.Total}}</strong> checks passed so far.</p>
   {{if .Failures}}
@@ -156,5 +198,6 @@
   </ul>
   {{end}}
 </section>
+{{end}}
 </div>
 {{end}}

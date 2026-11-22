@@ -129,6 +129,14 @@ func TestSimulatorHTMXFragment(t *testing.T) {
 		strings.Count(b, `class="terminal-block"`) != 6 { // boot + 5 steps
 		t.Errorf("jump should replace the terminal:\n%s", b)
 	}
+	// Staying on a step (Pause, the checks toggle) leaves the terminal
+	// alone, so it isn't typed out again. A step past the end is clamped
+	// before comparing.
+	for _, at := range [][2]string{{"4", "4"}, {"9999", "50"}} {
+		if b := step(at[0], at[1]); strings.Contains(b, "sim-term") || strings.Contains(b, "data-type") {
+			t.Errorf("same step %s should keep the terminal:\n%s", at[0], b)
+		}
+	}
 
 	// Autoplay keeps going until the end, then stops.
 	r := c.do("GET", "/simulator?seed=7&people=4&expenses=8&at=1&play=1", nil, map[string]string{"HX-Request": "true"})
@@ -144,5 +152,73 @@ func TestSimulatorHTMXFragment(t *testing.T) {
 	r = c.do("GET", "/simulator?seed=7&at=2", nil, map[string]string{"HX-Request": "true", "HX-History-Restore-Request": "true"})
 	if !strings.Contains(r.Body, "<html") {
 		t.Error("history restore got a fragment")
+	}
+}
+
+func TestSimulatorExpensesAndPayments(t *testing.T) {
+	c := newSimEnv(t).anon()
+	trip := sim.Run(sim.Params{Seed: 42, People: 4, Expenses: 12})
+	var settles, paybacks int
+	for _, ev := range trip.Events {
+		switch ev.Kind {
+		case sim.KindSettle:
+			settles++
+		case sim.KindPayment:
+			paybacks++
+		}
+	}
+
+	start := c.get("/simulator?seed=42&people=4&expenses=12&at=0").Body
+	if !strings.Contains(start, "No expenses yet.") || !strings.Contains(start, "No payments recorded.") {
+		t.Error("start page should have empty Expenses and Payments cards")
+	}
+
+	// After step 1 the new expense is the highlighted row.
+	one := c.get("/simulator?seed=42&people=4&expenses=12&at=1").Body
+	e := trip.Events[0].Expense
+	if strings.Count(one, `class="sim-new`) != 1 || !strings.Contains(one, "<td>"+e.Description) || !strings.Contains(one, "Day 1") {
+		t.Errorf("step 1 should list and highlight %q:\n%s", e.Description, one)
+	}
+
+	// At the end every expense and payment is listed; settle-up payments
+	// are marked.
+	end := c.get("/simulator?seed=42&people=4&expenses=12&at=9999").Body
+	if n := strings.Count(end, `<td class="who" data-label="Paid by">`); n != 12 {
+		t.Errorf("%d expense rows, want 12", n)
+	}
+	if n := strings.Count(end, `<span class="badge">settle-up</span>`); n != settles || settles == 0 {
+		t.Errorf("%d settle-up payments shown, want %d", n, settles)
+	}
+	if n := strings.Count(end, `<span class="row-text">`); n != settles+paybacks {
+		t.Errorf("%d payments shown, want %d", n, settles+paybacks)
+	}
+}
+
+func TestSimulatorChecksToggle(t *testing.T) {
+	c := newSimEnv(t).anon()
+
+	// Hidden by default.
+	off := c.get("/simulator?seed=42&at=3").Body
+	if strings.Contains(off, "Math checks</h2>") || !strings.Contains(off, "Show math checks") {
+		t.Error("math checks should be hidden by default, with a Show button")
+	}
+	if !strings.Contains(off, `href="/simulator?at=3&amp;checks=1&amp;expenses=12&amp;people=4&amp;seed=42"`) {
+		t.Error("Show button should stay on the same step")
+	}
+
+	// Shown with checks=1, and every link keeps it.
+	on := c.get("/simulator?seed=42&at=3&checks=1").Body
+	if !strings.Contains(on, "Math checks</h2>") || !strings.Contains(on, "Hide math checks") {
+		t.Error("checks=1 should show the math checks, with a Hide button")
+	}
+	for _, link := range []string{
+		`href="/simulator?at=4&amp;checks=1&amp;expenses=12&amp;people=4&amp;seed=42"`,            // Step
+		`href="/simulator?at=4&amp;checks=1&amp;expenses=12&amp;people=4&amp;play=1&amp;seed=42"`, // Play
+		`href="/simulator?checks=1&amp;expenses=12&amp;people=4"`,                                 // New trip
+		`<input type="hidden" name="checks" value="1">`,                                           // Trip settings
+	} {
+		if !strings.Contains(on, link) {
+			t.Errorf("checks=1 page lacks %s", link)
+		}
 	}
 }

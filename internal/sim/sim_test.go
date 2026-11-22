@@ -105,9 +105,17 @@ func TestShape(t *testing.T) {
 	}
 	var expenses int
 	settling := false
+	day := 1
 	for i, e := range trip.Events {
 		if e.N != i+1 {
 			t.Fatalf("event %d numbered %d", i, e.N)
+		}
+		if e.Day < day || e.Day > trip.Days {
+			t.Fatalf("event %d on day %d, after day %d of %d", e.N, e.Day, day, trip.Days)
+		}
+		day = e.Day
+		if e.Kind == KindSettle && e.Day != trip.Days {
+			t.Fatalf("settle-up on day %d, not the last day %d", e.Day, trip.Days)
 		}
 		switch e.Kind {
 		case KindExpense:

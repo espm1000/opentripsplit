@@ -483,6 +483,8 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
 @keyframes term-blink { 50% { opacity: 0; } }
 
 .sim-delta { font-weight: 700; }
+/* The Expenses or Payments row added at the current step. */
+.sim-new { background: var(--notice); }
 .badge.pass { color: var(--pos); }
 .badge.fail { color: var(--danger); }
 .sim-checks li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline; }

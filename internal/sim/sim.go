@@ -72,6 +72,7 @@ type Expense struct {
 // Event is one step of the trip and the state after it.
 type Event struct {
 	N         int // 1-based step number
+	Day       int // trip day, from 1; settle-up happens on the last day
 	Kind      EventKind
 	Expense   *Expense        // KindExpense
 	Payment   *ledger.Payment // KindPayment, KindSettle
@@ -105,6 +106,7 @@ type Trip struct {
 	Currency ledger.Currency
 	People   []Person
 	Events   []Event
+	Days     int // about three expenses a day
 }
 
 // names are mostly long, so the UI gets tested with names that wrap.
@@ -137,8 +139,11 @@ func Run(p Params) Trip {
 		t.People = append(t.People, Person{ID: int64(i + 1), Name: names[n]})
 	}
 	r := runner{trip: &t, rng: rng, running: map[int64]int64{}}
+	// Days don't use rng, so they don't change which trip a seed plays.
+	t.Days = 1 + p.Expenses/3
 
 	for i := range p.Expenses {
+		r.day = 1 + i*t.Days/p.Expenses
 		r.expense(int64(i + 1))
 		// Now and then someone pays part of their debt back.
 		if i > 0 && i < p.Expenses-1 && rng.IntN(8) == 0 {
@@ -147,6 +152,7 @@ func Run(p Params) Trip {
 	}
 	// Settle-up needs at most People−1 payments; the bound stops a broken
 	// SettleUp from looping forever (the checks then report it).
+	r.day = t.Days
 	for i := 0; i < p.People && len(r.last().Suggested) > 0; i++ {
 		r.settle()
 	}
@@ -166,6 +172,7 @@ type runner struct {
 	// running is a balance total kept step by step, separately from
 	// ledger.Balances, which recomputes from every expense and settlement.
 	running map[int64]int64
+	day     int // trip day for the next event
 }
 
 func (r *runner) last() Event {
@@ -314,7 +321,7 @@ func (r *runner) pay(kind EventKind, p ledger.Payment) {
 // appends it.
 func (r *runner) push(ev Event) {
 	prev := r.last().Balances
-	ev.N = len(r.trip.Events) + 1
+	ev.N, ev.Day = len(r.trip.Events)+1, r.day
 	ev.Balances, ev.Changed = map[int64]int64{}, map[int64]int64{}
 	got := ledger.Balances(r.expenses, r.settlements)
 	for _, p := range r.trip.People {
