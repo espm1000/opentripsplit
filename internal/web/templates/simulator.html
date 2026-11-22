@@ -88,7 +88,7 @@
 
 {{if .Done}}
 {{if .Failures}}
-<p class="sim-banner fail animate__animated animate__fadeIn">✖ Math check failed</p>
+<p class="sim-banner fail">✖ Math check failed</p>
 {{else}}
 <p class="sim-banner animate__animated animate__bounceIn">★ All square! ★</p>
 {{end}}
@@ -145,7 +145,7 @@
     <thead><tr><th>Day</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th></tr></thead>
     <tbody>
     {{range .Expenses}}
-    <tr{{if .New}} class="sim-new animate__animated animate__fadeIn"{{end}}>
+    <tr{{if .New}} class="sim-new"{{end}}>
       <td class="nowrap">Day {{.Day}}</td>
       <td>{{.Description}}
         <div class="muted small">{{.Split}}</div>
@@ -166,7 +166,7 @@
   {{if .Payments}}
   <ul class="list rows">
     {{range .Payments}}
-    <li{{if .New}} class="sim-new animate__animated animate__fadeIn"{{end}}>
+    <li{{if .New}} class="sim-new"{{end}}>
       <span class="row-text">{{.From}} paid {{.To}} <strong>{{.Amount}}</strong> <span class="muted small nowrap">day {{.Day}}</span></span>
       <span class="row-act">{{if .SettleUp}}<span class="badge">settle-up</span>{{end}}</span>
     </li>

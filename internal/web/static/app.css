@@ -10,7 +10,7 @@
  *   Atkinson Hyperlegible Next, designed for low vision
  * - no textures, scanlines, glow, blur or text shadows; the only motion is
  *   the button press, plus the simulator page: coins crossing, typed
- *   terminal text, short fades, slides and pulses (Animate.css, AutoAnimate,
+ *   terminal text, short slides and pulses (Animate.css, AutoAnimate,
  *   typewriter-effect, view transitions; never flashing or shaking).
  *   prefers-reduced-motion turns all of it off
  * - meaning is never carried by colour alone
@@ -500,6 +500,10 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
 .vt-p7 { view-transition-name: sim-p7; }
 .vt-p8 { view-transition-name: sim-p8; }
 ::view-transition-group(*) { animation-duration: 450ms; }
+/* No crossfade: the page and each row's contents swap at once; only the
+   rows' slide to their new rank is animated. */
+::view-transition-old(*) { display: none; }
+::view-transition-new(*) { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
