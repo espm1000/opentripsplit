@@ -163,7 +163,7 @@ jobs:
       # image findings and the repository findings apart.
       - name: Send SBOM to SecObserve
         if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
           so_file_name: opentripsplit_image.json
@@ -183,7 +183,7 @@ jobs:
 
       - name: Send Grype results to SecObserve
         if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('grype_results.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
           so_file_name: grype_results.json
