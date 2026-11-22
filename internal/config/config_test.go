@@ -90,3 +90,33 @@ func TestDevLocalAuth(t *testing.T) {
 		t.Error("bad DEV_LOCAL_AUTH value accepted")
 	}
 }
+
+func TestDebug(t *testing.T) {
+	if c, _ := Load(env(map[string]string{})); c.Debug {
+		t.Error("debug on by default")
+	}
+	if c, err := Load(env(map[string]string{"DEBUG": "true"})); err != nil || !c.Debug {
+		t.Errorf("DEBUG=true: Debug = %v, err = %v", c.Debug, err)
+	}
+	if _, err := Load(env(map[string]string{"DEBUG": "verbose"})); err == nil {
+		t.Error("bad DEBUG value accepted")
+	}
+}
+
+func TestSimulator(t *testing.T) {
+	if c, _ := Load(env(map[string]string{})); c.Simulator {
+		t.Error("simulator on by default")
+	}
+	for _, v := range []string{"1", "true", "on"} {
+		if c, err := Load(env(map[string]string{"SIMULATOR": v})); err != nil || !c.Simulator {
+			t.Errorf("SIMULATOR=%s: Simulator = %v, err = %v", v, c.Simulator, err)
+		}
+	}
+	// Unlike dev login it is allowed on a public BASE_URL: it is a demo.
+	if c, err := Load(env(map[string]string{"BASE_URL": "https://split.example.com", "SIMULATOR": "yes"})); err != nil || !c.Simulator {
+		t.Errorf("public BASE_URL: Simulator = %v, err = %v", c.Simulator, err)
+	}
+	if _, err := Load(env(map[string]string{"SIMULATOR": "maybe"})); err == nil {
+		t.Error("bad SIMULATOR value accepted")
+	}
+}

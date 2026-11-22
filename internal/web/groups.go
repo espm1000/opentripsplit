@@ -103,6 +103,15 @@ type balanceRow struct {
 	Rank   int // 1 = the person the group owes the most
 }
 
+// rankBalances puts rows in high-score order, most owed first and biggest
+// debt last, and numbers them.
+func rankBalances(rows []balanceRow) {
+	slices.SortStableFunc(rows, func(a, b balanceRow) int { return cmp.Compare(b.Amount, a.Amount) })
+	for i := range rows {
+		rows[i].Rank = i + 1
+	}
+}
+
 type paymentRow struct {
 	ledger.Payment
 	CanMark bool
@@ -140,11 +149,7 @@ func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error
 			d.Balances = append(d.Balances, balanceRow{UserID: m.UserID, Name: m.Name, Amount: bal[m.UserID], Active: m.Active})
 		}
 	}
-	// High-score order: most owed first, biggest debt last.
-	slices.SortStableFunc(d.Balances, func(a, b balanceRow) int { return cmp.Compare(b.Amount, a.Amount) })
-	for i := range d.Balances {
-		d.Balances[i].Rank = i + 1
-	}
+	rankBalances(d.Balances)
 	for _, p := range ledger.SettleUp(bal) {
 		canMark := writable && (p.From == gc.User.ID || p.To == gc.User.ID || gc.IsOwner())
 		d.SettleUp = append(d.SettleUp, paymentRow{p, canMark})

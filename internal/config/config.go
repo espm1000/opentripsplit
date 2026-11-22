@@ -26,6 +26,12 @@ type Config struct {
 	// bind LISTEN_ADDR to loopback, since anyone who can reach the port can
 	// log in.
 	DevLocalAuth bool
+	// Simulator turns on the public demo at /simulator (SIMULATOR). It
+	// replays random trips through the ledger math and saves nothing.
+	Simulator bool
+	// Debug turns on debug logging (DEBUG), including every successful
+	// /healthz request.
+	Debug bool
 }
 
 // Secure reports whether cookies should carry the Secure flag.
@@ -75,16 +81,22 @@ func Load(getenv func(string) string) (Config, error) {
 	c.SessionTTL = duration("SESSION_TTL", "720h")
 	c.InviteTTL = duration("INVITE_TTL", "168h")
 
-	switch v := strings.ToLower(get("DEV_LOCAL_AUTH", "")); v {
-	case "", "0", "false", "no", "off":
-	case "1", "true", "yes", "on":
-		c.DevLocalAuth = true
-		if c.BaseURL != nil && !IsLoopbackHost(c.BaseURL.Hostname()) {
-			errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
+	flag := func(key string) bool {
+		switch v := strings.ToLower(get(key, "")); v {
+		case "", "0", "false", "no", "off":
+		case "1", "true", "yes", "on":
+			return true
+		default:
+			errs = append(errs, fmt.Errorf("%s must be true or false, got %q", key, v))
 		}
-	default:
-		errs = append(errs, fmt.Errorf("DEV_LOCAL_AUTH must be true or false, got %q", v))
+		return false
 	}
+	c.DevLocalAuth = flag("DEV_LOCAL_AUTH")
+	if c.DevLocalAuth && c.BaseURL != nil && !IsLoopbackHost(c.BaseURL.Hostname()) {
+		errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
+	}
+	c.Simulator = flag("SIMULATOR")
+	c.Debug = flag("DEBUG")
 
 	if (c.GitHubID == "") != (c.GitHubSecret == "") {
 		errs = append(errs, errors.New("set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, or neither"))

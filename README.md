@@ -45,6 +45,30 @@ Safety:
 - Anyone who can reach the port can log in as anyone. Bind to loopback (`LISTEN_ADDR=127.0.0.1:8080`), or with Docker publish only on `127.0.0.1` (`-p 127.0.0.1:8080:8080`).
 - Dev accounts use their own provider name (`dev`), so they never collide with real GitHub or Discord accounts.
 
+## Trip simulator (demo and math check)
+
+```sh
+SIMULATOR=1 go run ./cmd/opentripsplit
+```
+
+This adds a public **Simulator** page at `/simulator`; no login is needed. Pixel travelers pass coins to each other while a retro terminal logs each step. It plays a random trip one step at a time:
+
+- expenses with every split type
+- the odd part payment mid-trip
+- the suggested settle-up payments, until everyone is square
+
+You can step through it or let it autoplay. As it goes, the page fills in the same high-score board, Settle up, Expenses and Payments cards as a real group.
+
+Each step runs the real `internal/ledger` code and checks the math:
+
+- splits add up and round fairly
+- balances sum to zero
+- settle-up clears every balance
+
+The results are hidden by default; **Show math checks** turns the panel on (`checks=1` in the URL). A failed check always shows the panel, and is logged.
+
+It is **off by default**. When on, it is stateless and **saves nothing**: each trip comes from a seed in the URL, so the same link always replays the same trip. That makes a link to any step good for sharing or for reproducing a bug. The same checks run on thousands of seeds in `go test ./internal/sim`, and `go test -fuzz=FuzzRun ./internal/sim` keeps looking for more.
+
 ## Creating the OAuth apps
 
 The callback URL is `$BASE_URL/auth/<provider>/callback`. Locally that's `http://localhost:8080/auth/github/callback` or `http://localhost:8080/auth/discord/callback`.
@@ -67,6 +91,8 @@ All settings come from environment variables:
 | `SESSION_TTL` | `720h` | How long a login lasts. |
 | `INVITE_TTL` | `168h` | How long invite links stay valid. |
 | `DEV_LOCAL_AUTH` | off | Password-less dev login with test users. Refused unless `BASE_URL` is localhost. Never in production. |
+| `DEBUG` | off | Debug logging, including every successful `/healthz` request (left out at the default info level). |
+| `SIMULATOR` | off | Public demo at `/simulator` that plays random trips through the split/balance math. Nothing is saved. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | | GitHub OAuth app (optional; can be set in the UI). |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | | Discord OAuth app (optional; can be set in the UI). |
 
@@ -211,8 +237,19 @@ internal/config/           environment parsing
 internal/auth/             OAuth providers (PKCE), sessions, login/link/logout
 internal/store/            SQLite access; migrations in internal/store/migrations/
 internal/ledger/           pure money logic: currencies, splitting, balances, settle-up
-internal/web/              handlers, templates, static files (vendored htmx)
+internal/sim/              trip simulator: random trips through the ledger, with invariant checks
+internal/web/              handlers, templates, static files (vendored htmx and simulator libraries)
 ```
+
+The JavaScript and CSS libraries are vendored unmodified into `internal/web/static/`, because the CSP only allows same-origin files. They have no build step and Renovate doesn't track them, so update them by hand from the npm tarball:
+
+- htmx 2.0.11 (`htmx.min.js`)
+- Animate.css 4.1.1 (`animate.min.css`)
+- `@formkit/auto-animate` 0.10.2 (`index.min.js`, saved as `auto-animate.min.js`)
+- typewriter-effect 2.22.0 (`dist/core.js`, saved as `typewriter.min.js`). Stay on 2.x: it is MIT, and the `skipAddStyles` option keeps it CSP-clean.
+- pixelarticons 2.4.2 (four SVGs in `sprites/`)
+
+Their licenses are next to them.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

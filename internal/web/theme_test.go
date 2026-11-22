@@ -92,6 +92,10 @@ func TestPalettesMeetKeratoconusTargets(t *testing.T) {
 		}
 		check("on-accent", "accent", 7)
 		check("on-danger", "danger", 7)
+		// The simulator's terminal has its own dark background.
+		for _, fg := range []string{"term-text", "term-dim", "term-prompt", "term-ok", "term-fail"} {
+			check(fg, "term-bg", 7)
+		}
 
 		// But never maximal: pure black/white and 21:1 cause halos.
 		for _, tok := range []string{"bg", "surface", "text"} {

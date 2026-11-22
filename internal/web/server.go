@@ -37,7 +37,9 @@ type Options struct {
 	EnvProviders map[string]config.OAuthCreds
 	// DevLocalAuth turns on password-less dev login (see devauth.go).
 	DevLocalAuth bool
-	Log          *slog.Logger
+	// Simulator turns on the public demo at /simulator (see simulator.go).
+	Simulator bool
+	Log       *slog.Logger
 }
 
 // Server serves the web UI.
@@ -48,6 +50,7 @@ type Server struct {
 	inviteTTL    time.Duration
 	envProviders map[string]config.OAuthCreds
 	devAuth      bool
+	simulator    bool
 	log          *slog.Logger
 	pages        map[string]*template.Template
 
@@ -63,7 +66,7 @@ type Server struct {
 func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server, error) {
 	s := &Server{
 		store: st, auth: a, baseURL: o.BaseURL, inviteTTL: o.InviteTTL,
-		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, log: o.Log, pages: map[string]*template.Template{},
+		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, log: o.Log, pages: map[string]*template.Template{},
 	}
 	funcs := template.FuncMap{
 		"date":     func(t time.Time) string { return t.Format("2 Jan 2006") },
@@ -95,6 +98,9 @@ func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server
 	if s.devAuth {
 		s.log.Warn("DEV_LOCAL_AUTH is on: anyone who can reach this server can log in as anyone. Never enable it in production.")
 	}
+	if s.simulator {
+		s.log.Info("simulator is on at /simulator")
+	}
 	if err := s.announceSetup(ctx); err != nil {
 		return nil, err
 	}
@@ -125,6 +131,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /invite/{token}", s.user(s.acceptInvite))
 
 	s.registerDevRoutes(mux)
+	s.registerSimRoutes(mux)
 
 	mux.HandleFunc("GET /setup", s.setupPage)
 	mux.HandleFunc("POST /setup", s.saveSetup)
@@ -203,7 +210,9 @@ func (w *statusWriter) WriteHeader(code int) {
 }
 
 // logRequests logs method, path, status and duration. It never logs IP
-// addresses, and redacts invite tokens from paths.
+// addresses, and redacts invite tokens from paths. Successful health checks
+// come every few seconds from container and load balancer probes, so they
+// are logged at debug level (DEBUG) only.
 func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -213,7 +222,11 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if strings.HasPrefix(path, "/invite/") {
 			path = "/invite/[token]"
 		}
-		s.log.Info("request", "method", r.Method, "path", path, "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
+		level := slog.LevelInfo
+		if path == "/healthz" && sw.status == http.StatusOK {
+			level = slog.LevelDebug
+		}
+		s.log.Log(r.Context(), level, "request", "method", r.Method, "path", path, "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
 	})
 }
 
@@ -230,6 +243,7 @@ type base struct {
 	User    *store.User
 	Title   string
 	DevAuth bool   // shows the dev-login banner
+	Sim     bool   // shows the simulator link
 	Theme   string // system, dark or light (see prefs.go)
 	Size    string // normal, large or huge
 	Path    string // where the preferences form returns to
@@ -241,7 +255,7 @@ func (base) TextSizes() []string { return textSizes }
 
 func (s *Server) base(r *http.Request, title string) base {
 	b := base{
-		Title: title, DevAuth: s.devAuth,
+		Title: title, DevAuth: s.devAuth, Sim: s.simulator,
 		Theme: pref(r, themeCookie, themes), Size: pref(r, sizeCookie, textSizes),
 		Path: "/",
 	}

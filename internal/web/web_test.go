@@ -817,6 +817,29 @@ func TestHealthz(t *testing.T) {
 	if r := e.anon().get("/healthz"); r.Status != 200 || r.Body != "ok\n" {
 		t.Fatalf("healthz: %d %q", r.Status, r.Body)
 	}
+	e.anon().get("/login")
+	// The test logger is at info level, like production without DEBUG.
+	if logs := e.logs.String(); strings.Contains(logs, "path=/healthz") || !strings.Contains(logs, "path=/login") {
+		t.Errorf("healthz should be logged at debug level only:\n%s", logs)
+	}
+}
+
+func TestHealthzLogLevel(t *testing.T) {
+	var buf strings.Builder
+	s := &Server{log: slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))}
+	status := http.StatusOK
+	h := s.logRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/healthz", nil))
+	if !strings.Contains(buf.String(), "level=DEBUG") || !strings.Contains(buf.String(), "path=/healthz") {
+		t.Errorf("successful healthz not logged at debug:\n%s", buf.String())
+	}
+	// A failing health check is worth seeing without DEBUG.
+	buf.Reset()
+	status = http.StatusServiceUnavailable
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/healthz", nil))
+	if !strings.Contains(buf.String(), "level=INFO") || !strings.Contains(buf.String(), "status=503") {
+		t.Errorf("failing healthz not logged at info:\n%s", buf.String())
+	}
 }
 
 func TestHighScoreBoard(t *testing.T) {

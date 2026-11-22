@@ -1,0 +1,203 @@
+{{define "head"}}
+<link rel="stylesheet" href="/static/animate.min.css">
+<script src="/static/typewriter.min.js" defer></script>
+<script type="module" src="/static/sim.js"></script>
+{{end}}
+
+{{define "content"}}
+<div class="title-row">
+  <h1><img class="icon" src="/static/icons/coin.svg" alt="">Trip simulator <span class="muted small">{{.Trip.Currency.Code}}</span></h1>
+  <div class="actions"><a class="button secondary" href="{{.NewTrip}}">New trip</a></div>
+</div>
+<p class="notice">Simulated data: nothing is saved. Each step runs the real split, balance and settle-up code, then checks the math.</p>
+<details>
+  <summary>Trip settings</summary>
+  <form method="get" action="/simulator" class="grid">
+    <label>Seed <input name="seed" value="{{.Q.Seed}}" inputmode="numeric" autocomplete="off" required></label>
+    <label>People <input type="number" name="people" value="{{.Q.People}}" min="2" max="8"></label>
+    <label>Expenses <input type="number" name="expenses" value="{{.Q.Expenses}}" min="5" max="40"></label>
+    <label>Currency
+      <select name="currency">
+        <option value="">Picked by the seed</option>
+        {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Q.Currency}} selected{{end}}>{{.Code}}</option>{{end}}
+      </select>
+    </label>
+    {{if .Q.Checks}}<input type="hidden" name="checks" value="1">{{end}}
+    <button>Load trip</button>
+  </form>
+  <p class="hint">The same settings always play the same trip, so a link to any step can be shared or replayed.</p>
+</details>
+
+<p id="sim-say" class="sr-only" aria-live="polite">{{.Say}}</p>
+
+<div id="sim" hx-target="#sim-stage" hx-swap="innerHTML transition:true" hx-push-url="true">
+  <div id="sim-stage">{{template "sim_step" .}}</div>
+</div>
+
+<section class="terminal" aria-label="Trip log">
+  <div class="terminal-bar" aria-hidden="true"><span class="sprite terminal-icon"></span>TRIP.EXE · asset loader</div>
+  <div id="sim-term" class="terminal-lines" tabindex="0" data-auto-animate data-type-ms="{{.TypeMS}}">{{template "sim_term" .}}</div>
+</section>
+
+{{template "sim_board" .}}
+{{end}}
+
+{{define "sim_step"}}
+<div class="sim-controls">
+  {{if .Done}}
+  <a class="button" href="{{.ReplayLink}}" hx-get="{{.ReplayLink}}">Replay</a>
+  {{else}}
+  <a class="button" href="{{.StepLink}}" hx-get="{{.StepLink}}">Step</a>
+  {{if .Q.Play}}
+  <a class="button secondary" href="{{.PauseLink}}" hx-get="{{.PauseLink}}">❚❚ Pause</a>
+  {{else}}
+  <a class="button secondary" href="{{.PlayLink}}" hx-get="{{.PlayLink}}">▶ Play</a>
+  {{end}}
+  <a class="button secondary" href="{{.EndLink}}" hx-get="{{.EndLink}}">Skip to end</a>
+  {{end}}
+  {{if .Q.At}}<a class="button secondary" href="{{.RestartLink}}" hx-get="{{.RestartLink}}">Restart</a>{{end}}
+  <a class="button secondary" href="{{.ChecksLink}}" hx-get="{{.ChecksLink}}">{{if .Q.Checks}}Hide math checks{{else}}Show math checks{{end}}</a>
+</div>
+{{if .Q.Play}}<div hidden hx-get="{{.PlayLink}}" hx-trigger="load delay:{{.Delay}}" hx-push-url="false" hx-replace-url="true"></div>{{end}}
+
+{{with .Scene}}
+<section class="card sim-window" aria-hidden="true">
+  <div class="sim-window-bar">{{.Title}}</div>
+  {{if .Party}}
+  <div class="sim-party">
+    {{range .Party}}
+    <figure class="sim-actor"><span class="sprite {{.Sprite}}{{if $.Scene.Cheer}} animate__animated animate__bounce{{end}}"></span><figcaption>{{.Name}}</figcaption></figure>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="sim-transfer">
+    <figure class="sim-actor"><span class="sprite {{.From.Sprite}}"></span><figcaption>{{.From.Name}}</figcaption></figure>
+    <div class="sim-lane{{if $.Q.Play}} loop{{end}}">
+      <img class="coin c1" src="/static/icons/coin.svg" alt=""><img class="coin c2" src="/static/icons/coin.svg" alt=""><img class="coin c3" src="/static/icons/coin.svg" alt="">
+    </div>
+    <figure class="sim-actor"><span class="sprite {{.To.Sprite}}"></span><figcaption>{{.To.Name}}</figcaption></figure>
+  </div>
+  {{end}}
+  <p class="sim-caption">{{.Caption}}</p>
+  <div class="sim-progress">
+    <span>Step {{$.Q.At}} of {{$.Steps}}</span>
+    <progress max="{{$.Steps}}" value="{{$.Q.At}}">{{$.Q.At}} of {{$.Steps}}</progress>
+  </div>
+</section>
+{{end}}
+
+{{if .Done}}
+{{if .Failures}}
+<p class="sim-banner fail">✖ Math check failed</p>
+{{else}}
+<p class="sim-banner animate__animated animate__bounceIn">★ All square! ★</p>
+{{end}}
+{{end}}
+
+{{if .Partial}}
+<p id="sim-say" hx-swap-oob="innerHTML">{{.Say}}</p>
+{{if .TermAdd}}<div hx-swap-oob="beforeend:#sim-term">{{template "sim_term_block" .LastBlock}}</div>
+{{else if not .TermKeep}}<div id="sim-term" hx-swap-oob="innerHTML">{{template "sim_term" .}}</div>{{end}}
+{{template "sim_board" .}}
+{{end}}
+{{end}}
+
+{{define "sim_term"}}{{range $i, $b := .Term}}{{if $.IsLast $i}}{{template "sim_term_block" $b}}{{else}}<div class="terminal-block">{{range $b}}<div class="terminal-line {{.Class}}">{{.Text}}</div>{{end}}</div>{{end}}{{end}}{{end}}
+
+{{define "sim_term_block"}}<div class="terminal-block" data-type>{{range .}}<div class="terminal-line {{.Class}}">{{.Text}}</div>{{end}}</div>{{end}}
+
+{{define "sim_board"}}
+<div id="sim-board"{{if .Partial}} hx-swap-oob="true"{{end}}>
+<div class="columns">
+<section class="card scores-card">
+  <h2><img class="icon" src="/static/icons/heart.svg" alt="">High scores</h2>
+  <div class="scores-head" aria-hidden="true"><span>Rank</span><span>Player</span><span>Score</span></div>
+  <ol class="scores" aria-label="Balances, most owed first">
+    {{range .Board}}
+    {{$d := index $.Changed .UserID}}
+    <li class="vt-p{{.UserID}}{{if eq .Rank 1}} top{{end}}">
+      <span class="rank">{{ordinal .Rank}}</span>
+      <span class="player"><span class="player-name">{{.Name}}</span><span class="leader" aria-hidden="true"></span></span>
+      <span class="score {{if gt .Amount 0}}pos{{else if lt .Amount 0}}neg{{end}}">
+        <span class="points{{if $d}} animate__animated animate__pulse{{end}}">{{if gt .Amount 0}}+{{else if lt .Amount 0}}−{{end}}{{$.Money (abs .Amount)}}</span>
+        <span class="small">{{if gt .Amount 0}}▲ is owed{{else if lt .Amount 0}}▼ owes{{else}}= settled{{end}}</span>
+        {{if $d}}<span class="small sim-delta">{{if gt $d 0}}+{{else}}−{{end}}{{$.Money (abs $d)}} this step</span>{{end}}
+      </span>
+    </li>
+    {{end}}
+  </ol>
+</section>
+
+<section class="card">
+  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Settle up</h2>
+  {{if .Suggest}}
+  <ul class="list">{{range .Suggest}}<li>{{.}}</li>{{end}}</ul>
+  {{else}}
+  <p class="muted">Everyone is square.</p>
+  {{end}}
+</section>
+</div>
+
+<section class="card">
+  <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
+  {{if .Expenses}}
+  <table class="expenses">
+    <thead><tr><th>Day</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {{range .Expenses}}
+    <tr{{if .New}} class="sim-new"{{end}}>
+      <td class="nowrap">Day {{.Day}}</td>
+      <td>{{.Description}}
+        <div class="muted small">{{.Split}}</div>
+      </td>
+      <td class="who" data-label="Paid by">{{.Payer}}</td>
+      <td class="num">{{.Amount}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No expenses yet.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments</h2>
+  {{if .Payments}}
+  <ul class="list rows">
+    {{range .Payments}}
+    <li{{if .New}} class="sim-new"{{end}}>
+      <span class="row-text">{{.From}} paid {{.To}} <strong>{{.Amount}}</strong> <span class="muted small nowrap">day {{.Day}}</span></span>
+      <span class="row-act">{{if .SettleUp}}<span class="badge">settle-up</span>{{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">No payments recorded.</p>
+  {{end}}
+</section>
+
+{{if .ShowChecks}}
+<section class="card">
+  <h2><img class="icon" src="/static/icons/key.svg" alt="">Math checks</h2>
+  <p><strong>{{.Passed}} of {{.Total}}</strong> checks passed so far.</p>
+  {{if .Failures}}
+  <div class="notice">
+    <p class="error">{{len .Failures}} check(s) failed. <a href="{{.RestartLink}}">Replay seed {{.Q.Seed}}</a> to reproduce.</p>
+    <ul>{{range .Failures}}<li>Step {{.Step}}, {{.Check.Name}}: {{.Check.Detail}}</li>{{end}}</ul>
+  </div>
+  {{end}}
+  {{if .Checks}}
+  <ul class="list sim-checks">
+    {{range .Checks}}
+    <li>
+      <span class="badge {{if .OK}}pass animate__animated animate__bounceIn{{else}}fail{{end}}">{{if .OK}}✔ PASS{{else}}✖ FAIL{{end}}</span>
+      <strong>{{.Name}}</strong> <span class="muted small">{{.Detail}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+</section>
+{{end}}
+</div>
+{{end}}
