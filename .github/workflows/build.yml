@@ -1,6 +1,7 @@
 name: Build
 
-# Builds the Docker image and scans it on every pull request. It pushes to
+# Builds the Docker image and scans it on every pull request except
+# release-please's, which is built and smoke tested but not scanned. It pushes to
 # GHCR in three cases:
 #   - workflow_dispatch with "push" ticked: tagged with the short commit SHA.
 #   - workflow_dispatch with "skip_security" ticked: the same, but without the
@@ -52,6 +53,12 @@ jobs:
     outputs:
       push: ${{ steps.tags.outputs.push }}
       tags: ${{ steps.tags.outputs.tags }}
+    env:
+      # Skip the image scans when a dispatch ticks skip_security, or on a
+      # release-please PR (it only changes CHANGELOG.md and the version
+      # manifest). The image is still built and smoke tested. A release
+      # publish (workflow_call) always scans, since that image goes to GHCR.
+      SKIP_SCANS: ${{ inputs.skip_security || startsWith(github.head_ref, 'release-please--') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -141,10 +148,10 @@ jobs:
           docker logs "$name"
           exit 1
 
-      # The four security steps below are skipped when a dispatch ticks
-      # skip_security (inputs.skip_security is empty on other events).
+      # The four security steps below are skipped when SKIP_SCANS is true
+      # (see the job's env).
       - name: Generate image SBOM
-        if: ${{ !inputs.skip_security }}
+        if: ${{ env.SKIP_SCANS != 'true' }}
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: ${{ env.LOCAL_IMAGE }}
@@ -155,7 +162,7 @@ jobs:
       # The file names differ from security.yml's, so SecObserve keeps the
       # image findings and the repository findings apart.
       - name: Send SBOM to SecObserve
-        if: ${{ !inputs.skip_security && !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
+        if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
         uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
@@ -165,7 +172,7 @@ jobs:
           so_branch_name: ${{ github.head_ref || github.ref_name }}
 
       - name: Scan image SBOM
-        if: ${{ !inputs.skip_security }}
+        if: ${{ env.SKIP_SCANS != 'true' }}
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           sbom: opentripsplit_image.json
@@ -175,7 +182,7 @@ jobs:
           output-file: grype_results.json
 
       - name: Send Grype results to SecObserve
-        if: ${{ !inputs.skip_security && !cancelled() && hashFiles('grype_results.json') != '' }}
+        if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('grype_results.json') != '' }}
         uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
