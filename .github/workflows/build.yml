@@ -67,16 +67,25 @@ jobs:
               echo "::error::release version '$VERSION' isn't semver"
               exit 1
             fi
+            # The app reads its version from the manifest, so it must
+            # match the release being built.
+            if ! grep -qF "\"$VERSION\"" .release-please-manifest.json; then
+              echo "::error::.release-please-manifest.json doesn't say $VERSION"
+              exit 1
+            fi
             tags="$image:$VERSION"
             if [ -z "${BASH_REMATCH[3]}" ]; then
               tags="$tags $image:${BASH_REMATCH[1]}.${BASH_REMATCH[2]} $image:latest"
             fi
             label="$VERSION"
+            commit=""
           elif [ "$EVENT" = workflow_dispatch ] && [ "$PUSH_INPUT" = true ]; then
             tags="$image:$short_sha"
             label="$short_sha"
+            commit="$short_sha"
           else
             label="$short_sha"
+            commit="$short_sha"
           fi
           push=false
           if [ -n "$tags" ]; then push=true; fi
@@ -84,6 +93,7 @@ jobs:
             echo "push=$push"
             echo "tags=$tags"
             echo "version=$label"
+            echo "commit=$commit"
           } >> "$GITHUB_OUTPUT"
           echo "Push: $push"
           echo "Tags: ${tags:-none}"
@@ -92,9 +102,12 @@ jobs:
         env:
           SOURCE: ${{ github.server_url }}/${{ github.repository }}
           VERSION: ${{ steps.tags.outputs.version }}
+          COMMIT: ${{ steps.tags.outputs.commit }}
         run: |
           # The source label links the GHCR package to this repository.
+          # COMMIT (empty for a release) is the version the app shows.
           docker build \
+            --build-arg "COMMIT=$COMMIT" \
             --label "org.opencontainers.image.source=$SOURCE" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.version=$VERSION" \

@@ -824,6 +824,13 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestFooterVersion(t *testing.T) {
+	e := newEnvWith(t, nil, func(o *Options) { o.Version = "1.2.3" })
+	if r := e.anon().get("/login"); !strings.Contains(r.Body, `<div class="version">Version 1.2.3</div>`) {
+		t.Errorf("login page footer lacks the version:\n%s", r.Body)
+	}
+}
+
 func TestHealthzLogLevel(t *testing.T) {
 	var buf strings.Builder
 	s := &Server{log: slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))}

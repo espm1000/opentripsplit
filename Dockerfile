@@ -5,7 +5,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/opentripsplit ./cmd/opentripsplit \
+# The version comes from .release-please-manifest.json. A branch build
+# passes its short commit SHA here to show that instead; releases leave it empty.
+ARG COMMIT=""
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/espm1000/opentripsplit.commit=${COMMIT}" -o /out/opentripsplit ./cmd/opentripsplit \
  && mkdir -p /out/data
 
 # Distroless: no shell, no package manager. Runs as uid 65532 (nonroot).
