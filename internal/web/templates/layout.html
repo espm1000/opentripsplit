@@ -15,25 +15,17 @@
 <body>
 {{if .DevAuth}}<div class="dev-banner">Dev login is on (DEV_LOCAL_AUTH). Never enable it in production.</div>{{end}}
 <header class="top">
-  <a class="brand" href="/"><img class="icon" src="/static/icons/logo.svg" alt="">OpenTripSplit</a>
-  {{if or .User .Sim}}
-  <nav>
+  <nav aria-label="Main">
+    <a class="brand" href="/"><img class="icon" src="/static/icons/logo.svg" alt="">OpenTripSplit</a>
     {{if .Sim}}<a href="/simulator">Simulator</a>{{end}}
     {{with .User}}
     <a href="/groups">Groups</a>
     {{if .IsAdmin}}<a href="/admin">Admin</a>{{end}}
     {{if $.DevAuth}}<a href="/login?switch=1">Switch user</a>{{end}}
     <a href="/account">{{.DisplayName}}</a>
-    <form method="post" action="/logout" class="inline"><button class="link">Log out</button></form>
+    <form method="post" action="/logout"><button class="link">Log out</button></form>
     {{end}}
   </nav>
-  {{end}}
-</header>
-<main>
-{{template "content" .}}
-</main>
-<footer>
-  OpenTripSplit · <a href="https://github.com/espm1000/opentripsplit">open source (MIT)</a>
   <form method="post" action="/prefs" class="prefs" aria-label="Display settings">
     <input type="hidden" name="next" value="{{.Path}}">
     <label>Theme
@@ -48,6 +40,13 @@
     </label>
     <button class="secondary small">Apply</button>
   </form>
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>
+  OpenTripSplit · <a href="https://github.com/espm1000/opentripsplit">open source (MIT)</a>
+  {{with .Version}}<div class="version">Version {{.}}</div>{{end}}
 </footer>
 </body>
 </html>{{end}}

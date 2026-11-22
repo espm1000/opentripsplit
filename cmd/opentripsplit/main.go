@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/espm1000/opentripsplit"
 	"github.com/espm1000/opentripsplit/internal/auth"
 	"github.com/espm1000/opentripsplit/internal/config"
 	"github.com/espm1000/opentripsplit/internal/store"
@@ -56,7 +57,7 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	// Providers come from env vars and/or the database (set up at /setup).
 	srv, err := web.New(ctx, st, a, web.Options{
 		BaseURL: cfg.BaseURL, InviteTTL: cfg.InviteTTL, EnvProviders: cfg.EnvProviders(),
-		DevLocalAuth: cfg.DevLocalAuth, Simulator: cfg.Simulator, Log: log,
+		DevLocalAuth: cfg.DevLocalAuth, Simulator: cfg.Simulator, Version: opentripsplit.Version(), Log: log,
 	})
 	if err != nil {
 		return err
@@ -75,7 +76,7 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	}
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
+		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
 		errc <- hs.ListenAndServe()
 	}()
 	select {

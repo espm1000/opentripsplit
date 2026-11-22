@@ -1,18 +1,18 @@
 // Simulator page only (templates/simulator.html). The server sends every
 // step as HTML; this file only animates what it sends:
-// - the newest terminal block (data-type) is typed out line by line with
-//   typewriter-effect, and the terminal scrolls to follow it
-// - AutoAnimate slides new blocks into the terminal
-// Under prefers-reduced-motion the text appears at once (AutoAnimate checks
-// the setting itself).
+// the newest terminal block (data-type) is typed out line by line with
+// typewriter-effect, and the terminal scrolls to follow it. Under
+// prefers-reduced-motion the text appears at once.
+//
+// app.css hides a data-type block until it gets data-typed here, so its
+// full text never flashes before typing starts (htmx:load comes after
+// htmx's settle delay). sim-noscript.css shows it when JavaScript is off.
 //
 // Terminal text must never contain user input. typewriter-effect parses a
 // string that looks like an HTML tag (/<[a-z][\s\S]*>/i) as HTML through
 // innerHTML, and we hand it textContent, which the browser has already
 // unescaped. Today every line is built in simulator.go from fixed names,
 // descriptions, numbers and a checked currency code.
-import autoAnimate from "./auto-animate.min.js";
-
 const reduce = matchMedia("(prefers-reduced-motion: reduce)");
 const seen = new WeakSet();
 let finishTyping = null; // shows the rest of the block being typed
@@ -55,11 +55,14 @@ function typeBlock(block) {
     finishTyping = null;
   };
   if (reduce.matches || !globalThis.Typewriter) {
+    block.dataset.typed = "";
     finish();
     return;
   }
   finishTyping = finish;
   lines.forEach((l) => { l.textContent = ""; });
+  block.dataset.typed = "";
+  follow(term);
   const stringSplitter = chunker(texts, Number(term?.dataset.typeMs) || 1500);
   let i = 0;
   const next = () => {
@@ -81,12 +84,6 @@ function typeBlock(block) {
 }
 
 function wire(root) {
-  for (const el of all(root, "[data-auto-animate]")) {
-    if (!seen.has(el)) {
-      seen.add(el);
-      autoAnimate(el);
-    }
-  }
   for (const block of all(root, ".terminal-block[data-type]")) {
     if (!seen.has(block)) {
       seen.add(block);

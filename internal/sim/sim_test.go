@@ -37,13 +37,21 @@ func TestManyTrips(t *testing.T) {
 	}
 	splitTypes := map[ledger.SplitType]int{}
 	decimals := map[int]bool{}
+	leftovers := 0 // expenses whose split didn't divide evenly
 	for seed := range uint64(n) {
 		p := Params{Seed: seed, People: MinPeople + int(seed)%(MaxPeople-MinPeople+1), Expenses: MinExpenses + int(seed*7)%(MaxExpenses-MinExpenses+1)}
 		trip := checkTrip(t, p)
 		decimals[trip.Currency.Decimals] = true
 		for _, e := range trip.Events {
-			if e.Expense != nil {
-				splitTypes[e.Expense.SplitType]++
+			if e.Expense == nil {
+				continue
+			}
+			splitTypes[e.Expense.SplitType]++
+			if least := minAmount(trip.Currency); e.Expense.Amount < least {
+				t.Fatalf("seed %d step %d: %s purchase of %d is under the %d minimum", seed, e.N, trip.Currency.Code, e.Expense.Amount, least)
+			}
+			if e.Expense.SplitType == ledger.SplitEqual && e.Expense.Amount%int64(len(e.Expense.Shares)) != 0 {
+				leftovers++
 			}
 		}
 	}
@@ -56,6 +64,10 @@ func TestManyTrips(t *testing.T) {
 		if !decimals[d] {
 			t.Errorf("no currency with %d decimals simulated", d)
 		}
+	}
+	// The minimum purchase mustn't stop rounding from being tested.
+	if leftovers == 0 {
+		t.Error("no equal split had a rounding leftover")
 	}
 }
 

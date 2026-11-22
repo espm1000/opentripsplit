@@ -1,0 +1,4 @@
+/* Loaded inside <noscript> on the simulator page (simulator.html). Without
+   JavaScript nothing types out the newest terminal block, so show it as
+   the server sent it. */
+.terminal-block[data-type] { display: block !important; }

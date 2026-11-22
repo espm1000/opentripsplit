@@ -10,8 +10,8 @@
  *   Atkinson Hyperlegible Next, designed for low vision
  * - no textures, scanlines, glow, blur or text shadows; the only motion is
  *   the button press, plus the simulator page: coins crossing, typed
- *   terminal text, short slides and pulses (Animate.css, AutoAnimate,
- *   typewriter-effect, view transitions; never flashing or shaking).
+ *   terminal text, short slides and pulses (Animate.css, typewriter-effect,
+ *   view transitions; never flashing or shaking).
  *   prefers-reduced-motion turns all of it off
  * - meaning is never carried by colour alone
  */
@@ -170,7 +170,8 @@ code { font-family: ui-monospace, monospace; font-size: 0.9em; overflow-wrap: an
   object-fit: contain;
 }
 
-/* Header and footer. */
+/* Header: the brand and menu on the left, display settings on the right.
+   Every menu entry, Log out included, uses the brand's pixel lettering. */
 .top {
   display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; justify-content: space-between;
   padding: 0.75rem 1rem;
@@ -178,7 +179,14 @@ code { font-family: ui-monospace, monospace; font-size: 0.9em; overflow-wrap: an
   border-bottom: calc(var(--bw) + 1px) solid var(--border);
 }
 .top nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; }
-.brand { font-size: 1.4rem; font-weight: 700; color: var(--text); text-decoration: none; display: inline-flex; align-items: center; }
+.top nav form { margin: 0; }
+.brand, .top nav a, .top nav button.link {
+  font-family: var(--pixel); font-size: 1.4rem; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text); text-decoration: none; display: inline-flex; align-items: center;
+}
+.top nav a:hover, .top nav button.link:hover {
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
 .brand .icon { width: 2em; height: 2em; }
 main { max-width: 60rem; margin: 0 auto; padding: 1rem; }
 footer {
@@ -186,8 +194,8 @@ footer {
   color: var(--muted); font-size: 0.9rem;
   border-top: var(--bw) solid var(--border);
 }
-.prefs { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-top: 0.75rem; }
-.prefs label { display: grid; gap: 0.25rem; }
+.prefs { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; }
+.prefs label { display: flex; gap: 0.4rem; align-items: center; }
 .prefs select { width: auto; }
 
 .dev-banner {
@@ -311,9 +319,55 @@ th { font-size: 0.9rem; color: var(--muted); font-weight: 700; }
 .num { text-align: right; white-space: nowrap; }
 .pos { color: var(--pos); font-weight: 700; }
 .neg { color: var(--neg); font-weight: 700; }
+
 .row-actions { white-space: nowrap; text-align: right; }
 .who { min-width: 8em; }
-.expenses { display: block; overflow-x: auto; }
+/* The wrapper scrolls sideways if the columns can't fit, so the table
+   itself can stay a real table and stretch to the card's full width. */
+.table-wrap { overflow-x: auto; }
+/* A little more air per expense than other tables, so rows stay apart. */
+.expenses td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+/* Body font, like the balances: the pixel font's "5" and "S" look alike. */
+.expense-amount { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The description reads like a quest-log entry: a "!" quest marker and
+   the title in the pixel font, at the h3 size where it stays legible. */
+.quest { font-family: var(--pixel); font-size: 1.15rem; font-weight: 700; line-height: 1.35; letter-spacing: 0.02em; }
+.quest::before {
+  content: "!"; content: "!" / "";
+  display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; margin-right: 0.5em;
+  font-size: 0.85em; vertical-align: 0.1em;
+  background: var(--accent); color: var(--on-accent);
+  box-shadow: 0 0 0 2px var(--border);
+}
+
+/* The split type: its symbol, then its name in uppercase. */
+.split-tag { white-space: nowrap; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.split-sym { font-size: 1.1em; margin-right: 0.35em; }
+
+/* A card drawn as an RPG scroll: parchment between two rolled ends. Each
+   roll has a line where the sheet curls in and a knob poking out at both
+   sides (box-shadows shrunk by a negative spread). The side margin leaves
+   room for the overhang. */
+.card.scroll {
+  position: relative;
+  background: var(--notice);
+  margin: 1.5rem 1.25rem 2.25rem;
+  padding: 1.75rem 1.5rem;
+}
+.card.scroll::before, .card.scroll::after {
+  content: "";
+  position: absolute; left: -0.75rem; right: -0.75rem; height: 1.25rem;
+  background: linear-gradient(var(--chip) 0 60%, var(--border) 60% calc(60% + var(--bw)), var(--chip) 0);
+  box-shadow:
+    0 calc(-1 * var(--bw)) 0 0 var(--border),
+    0 var(--bw) 0 0 var(--border),
+    calc(-1 * var(--bw)) 0 0 0 var(--border),
+    var(--bw) 0 0 0 var(--border),
+    -0.75rem 0 0 -0.3rem var(--border),
+    0.75rem 0 0 -0.3rem var(--border);
+}
+.card.scroll::before { top: -0.6rem; }
+.card.scroll::after { bottom: -0.6rem; transform: scaleY(-1); }
 
 /* Forms. */
 form.inline { display: inline; margin: 0 0 0 0.75rem; }
@@ -392,8 +446,8 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
 /* Simulator (simulator.html). Art and motion come from vendored
    libraries: pixelarticons sprites (drawn through CSS masks so they take
    the theme's colors), the app's coin icon, Animate.css classes the server
-   picks, typewriter-effect and AutoAnimate in the terminal, and htmx view
-   transitions, which slide each player's row to its new rank. */
+   picks, typewriter-effect in the terminal, and htmx view transitions,
+   which slide each player's row to its new rank. */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
@@ -476,6 +530,9 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .terminal-block + .terminal-block { margin-top: 0.6rem; }
+/* Hidden until sim.js starts typing it, so the full text never flashes
+   first. sim-noscript.css shows it when JavaScript is off. */
+.terminal-block[data-type]:not([data-typed]) { display: none; }
 .terminal-line.prompt { color: var(--term-prompt); font-weight: 700; }
 .terminal-line.ok { color: var(--term-ok); }
 .terminal-line.fail { color: var(--term-fail); font-weight: 700; }
@@ -485,6 +542,9 @@ details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-w
 .sim-delta { font-weight: 700; }
 /* The Expenses or Payments row added at the current step. */
 .sim-new { background: var(--notice); }
+/* On the scroll the paper is already --notice, so mark the row with a bar. */
+.scroll .sim-new { background: var(--surface); }
+.scroll .sim-new td:first-child { box-shadow: inset calc(var(--bw) * 2) 0 0 0 var(--accent); padding-left: 0.75rem; }
 .badge.pass { color: var(--pos); }
 .badge.fail { color: var(--danger); }
 .sim-checks li { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline; }

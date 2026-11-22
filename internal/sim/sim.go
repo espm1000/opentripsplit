@@ -109,14 +109,15 @@ type Trip struct {
 	Days     int // about three expenses a day
 }
 
-// names are mostly long, so the UI gets tested with names that wrap.
-// Short ones are rare on purpose.
+// names are common North American first names. Most are six letters or
+// more, so the UI gets tested with names that wrap; short ones are rare on
+// purpose.
 var names = []string{
-	"Beatrice", "Montgomery", "Priyanka", "Theodore", "Esperanza", "Oluwaseun",
-	"Annika", "Rosalind", "Fernando", "Margaux", "Takeshi", "Ingrid",
-	"Dashiell", "Wilhelmina", "Isadora", "Lorenzo", "Svetlana", "Cornelius",
-	"Florence", "Benedikt", "Matilda", "Anastasia", "Bartholomew", "Guadalupe",
-	"Siobhan", "Maximilian", "Henrietta", "Valentina", "Kai", "Josephine",
+	"Michael", "Jennifer", "Christopher", "Jessica", "Matthew", "Ashley",
+	"Joshua", "Amanda", "Daniel", "Sarah", "David", "Emily",
+	"James", "Megan", "Andrew", "Lauren", "Ryan", "Nicole",
+	"Brandon", "Stephanie", "Tyler", "Rachel", "Justin", "Samantha",
+	"Kevin", "Elizabeth", "Jacob", "Hannah", "William", "Amy",
 }
 
 var descriptions = []string{
@@ -243,21 +244,44 @@ func (r *runner) expense(id int64) {
 	r.push(ev)
 }
 
-// amount picks an expense total in minor units. About one in ten is tiny
-// (1 to n units), so rounding leftovers and tie rotation get exercised.
-func (r *runner) amount(n int) int64 {
-	if r.rng.IntN(10) == 0 {
-		return 1 + r.rng.Int64N(int64(n))
+// minPurchase is the smallest expense, in major units (2.00 USD). It only
+// applies to the simulator: smaller purchases look unrealistic in a demo.
+const minPurchase = 2
+
+// minAmount is minPurchase in c's minor units. Currencies without minor
+// units are scaled up 100 times, like every simulated amount in them.
+func minAmount(c ledger.Currency) int64 {
+	return minPurchase * majorUnit(c)
+}
+
+// majorUnit is how many minor units a simulated "1" is in c: 100 cents,
+// 1,000 fils, or 100 yen (see amount).
+func majorUnit(c ledger.Currency) int64 {
+	if c.Decimals == 0 {
+		return 100
 	}
 	unit := int64(1)
-	for range r.trip.Currency.Decimals {
+	for range c.Decimals {
 		unit *= 10
 	}
-	major := 5 + r.rng.Int64N(296)
-	if r.trip.Currency.Decimals == 0 {
-		major *= 100 // 500 to 30,000 yen, krona, ... rather than 5 to 300
+	return unit
+}
+
+// amount picks an expense total in minor units, at least minAmount. About
+// one in ten is the minimum plus fewer minor units than there are people,
+// so rounding leftovers and tie rotation get exercised.
+func (r *runner) amount(n int) int64 {
+	c := r.trip.Currency
+	if r.rng.IntN(10) == 0 {
+		return minAmount(c) + r.rng.Int64N(int64(n))
 	}
-	return major*unit + r.rng.Int64N(unit)
+	// 5.00 to 300.99 USD; 500 to 30,000 yen, krona, ...
+	major := 5 + r.rng.Int64N(296)
+	cents := int64(0)
+	if c.Decimals > 0 {
+		cents = r.rng.Int64N(majorUnit(c))
+	}
+	return major*majorUnit(c) + cents
 }
 
 // partition splits total into n non-negative parts that are multiples of

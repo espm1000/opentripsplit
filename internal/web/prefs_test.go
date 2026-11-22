@@ -18,6 +18,12 @@ func TestPrefs(t *testing.T) {
 	if !strings.Contains(page.Body, `name="next" value="/login"`) {
 		t.Fatal("prefs form doesn't return to the current page")
 	}
+	// The display settings sit in the header, not the footer.
+	header := page.Body[strings.Index(page.Body, "<header"):strings.Index(page.Body, "</header>")]
+	footer := page.Body[strings.Index(page.Body, "<footer"):strings.Index(page.Body, "</footer>")]
+	if !strings.Contains(header, `action="/prefs"`) || strings.Contains(footer, `action="/prefs"`) {
+		t.Fatal("prefs form should be in the header only")
+	}
 
 	r := c.post("/prefs", url.Values{"theme": {"dark"}, "size": {"huge"}, "next": {"/login"}})
 	if r.Status != http.StatusSeeOther || r.Location != "/login" {

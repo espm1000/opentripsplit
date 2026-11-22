@@ -1,12 +1,15 @@
 name: Build
 
 # Builds the Docker image and scans it on every pull request. It pushes to
-# GHCR in two cases:
+# GHCR in three cases:
 #   - workflow_dispatch with "push" ticked: tagged with the short commit SHA.
+#   - workflow_dispatch with "skip_security" ticked: the same, but without the
+#     SBOM, the image scan or the SecObserve uploads. The smoke test still runs.
 #   - workflow_call from release.yml after release-please creates a release:
 #     tagged X.Y.Z, X.Y and latest (pre-releases get only X.Y.Z).
-# The pushed image is the exact one that was scanned: the build job saves it
-# and the publish job loads and pushes it, without rebuilding.
+# The pushed image is the exact one that was scanned (unless the scan was
+# skipped): the build job saves it and the publish job loads and pushes it,
+# without rebuilding.
 
 on:
   pull_request:
@@ -14,6 +17,10 @@ on:
     inputs:
       push:
         description: Push the image to GHCR, tagged with the short commit SHA
+        type: boolean
+        default: false
+      skip_security:
+        description: Skip security scans
         type: boolean
         default: false
   workflow_call:
@@ -56,6 +63,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           PUSH_INPUT: ${{ inputs.push }}
+          SKIP_SECURITY: ${{ inputs.skip_security }}
           VERSION: ${{ inputs.version }}
           REPO: ${{ github.repository }}
         run: |
@@ -67,16 +75,28 @@ jobs:
               echo "::error::release version '$VERSION' isn't semver"
               exit 1
             fi
+            # The app reads its version from the manifest, so it must
+            # match the release being built.
+            if ! grep -qF "\"$VERSION\"" .release-please-manifest.json; then
+              echo "::error::.release-please-manifest.json doesn't say $VERSION"
+              exit 1
+            fi
             tags="$image:$VERSION"
             if [ -z "${BASH_REMATCH[3]}" ]; then
               tags="$tags $image:${BASH_REMATCH[1]}.${BASH_REMATCH[2]} $image:latest"
             fi
             label="$VERSION"
-          elif [ "$EVENT" = workflow_dispatch ] && [ "$PUSH_INPUT" = true ]; then
+            commit=""
+          elif [ "$EVENT" = workflow_dispatch ] && { [ "$PUSH_INPUT" = true ] || [ "$SKIP_SECURITY" = true ]; }; then
+            if [ "$SKIP_SECURITY" = true ]; then
+              echo "::warning::security scanning skipped: $image:$short_sha is pushed unscanned"
+            fi
             tags="$image:$short_sha"
             label="$short_sha"
+            commit="$short_sha"
           else
             label="$short_sha"
+            commit="$short_sha"
           fi
           push=false
           if [ -n "$tags" ]; then push=true; fi
@@ -84,6 +104,7 @@ jobs:
             echo "push=$push"
             echo "tags=$tags"
             echo "version=$label"
+            echo "commit=$commit"
           } >> "$GITHUB_OUTPUT"
           echo "Push: $push"
           echo "Tags: ${tags:-none}"
@@ -92,9 +113,12 @@ jobs:
         env:
           SOURCE: ${{ github.server_url }}/${{ github.repository }}
           VERSION: ${{ steps.tags.outputs.version }}
+          COMMIT: ${{ steps.tags.outputs.commit }}
         run: |
           # The source label links the GHCR package to this repository.
+          # COMMIT (empty for a release) is the version the app shows.
           docker build \
+            --build-arg "COMMIT=$COMMIT" \
             --label "org.opencontainers.image.source=$SOURCE" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.version=$VERSION" \
@@ -117,7 +141,10 @@ jobs:
           docker logs "$name"
           exit 1
 
+      # The four security steps below are skipped when a dispatch ticks
+      # skip_security (inputs.skip_security is empty on other events).
       - name: Generate image SBOM
+        if: ${{ !inputs.skip_security }}
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: ${{ env.LOCAL_IMAGE }}
@@ -128,7 +155,7 @@ jobs:
       # The file names differ from security.yml's, so SecObserve keeps the
       # image findings and the repository findings apart.
       - name: Send SBOM to SecObserve
-        if: ${{ !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
+        if: ${{ !inputs.skip_security && !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
         uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
@@ -138,6 +165,7 @@ jobs:
           so_branch_name: ${{ github.head_ref || github.ref_name }}
 
       - name: Scan image SBOM
+        if: ${{ !inputs.skip_security }}
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           sbom: opentripsplit_image.json
@@ -147,7 +175,7 @@ jobs:
           output-file: grype_results.json
 
       - name: Send Grype results to SecObserve
-        if: ${{ !cancelled() && hashFiles('grype_results.json') != '' }}
+        if: ${{ !inputs.skip_security && !cancelled() && hashFiles('grype_results.json') != '' }}
         uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}

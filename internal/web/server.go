@@ -39,7 +39,11 @@ type Options struct {
 	DevLocalAuth bool
 	// Simulator turns on the public demo at /simulator (see simulator.go).
 	Simulator bool
-	Log       *slog.Logger
+	// Version is shown in the footer to logged-in users only, so anonymous
+	// visitors can't tell which release (and which known bugs) an instance
+	// runs.
+	Version string
+	Log     *slog.Logger
 }
 
 // Server serves the web UI.
@@ -51,6 +55,7 @@ type Server struct {
 	envProviders map[string]config.OAuthCreds
 	devAuth      bool
 	simulator    bool
+	version      string
 	log          *slog.Logger
 	pages        map[string]*template.Template
 
@@ -66,7 +71,7 @@ type Server struct {
 func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server, error) {
 	s := &Server{
 		store: st, auth: a, baseURL: o.BaseURL, inviteTTL: o.InviteTTL,
-		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, log: o.Log, pages: map[string]*template.Template{},
+		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, version: o.Version, log: o.Log, pages: map[string]*template.Template{},
 	}
 	funcs := template.FuncMap{
 		"date":     func(t time.Time) string { return t.Format("2 Jan 2006") },
@@ -247,9 +252,10 @@ type base struct {
 	Theme   string // system, dark or light (see prefs.go)
 	Size    string // normal, large or huge
 	Path    string // where the preferences form returns to
+	Version string // release version or commit SHA; empty when logged out
 }
 
-// Themes and TextSizes feed the preferences form in the footer.
+// Themes and TextSizes feed the preferences form in the header.
 func (base) Themes() []string    { return themes }
 func (base) TextSizes() []string { return textSizes }
 
@@ -265,6 +271,7 @@ func (s *Server) base(r *http.Request, title string) base {
 	}
 	if u, ok := auth.UserFrom(r.Context()); ok {
 		b.User = &u
+		b.Version = s.version
 	}
 	return b
 }
