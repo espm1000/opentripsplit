@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/espm1000/opentripsplit/compare/v0.3.0...v0.4.0) (2026-11-22)
+
+
+### Features
+
+* **groups:** add consistent styling ([cf38e1e](https://github.com/espm1000/opentripsplit/commit/cf38e1e00c8fd7dacf182ff4badfe1c0b254bbf4))
+* **groups:** show groups page sections as cards with button links ([56e0815](https://github.com/espm1000/opentripsplit/commit/56e0815797e10d6ec52bde6736a59792e18d3440))
+
 ## [0.3.0](https://github.com/espm1000/opentripsplit/compare/v0.2.0...v0.3.0) (2026-11-22)
 
 
