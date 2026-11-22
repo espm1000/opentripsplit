@@ -77,6 +77,24 @@ func TestSimulatorCurrency(t *testing.T) {
 	if r := c.get("/simulator?seed=5&currency=XYZ"); r.Status != http.StatusBadRequest {
 		t.Errorf("unknown currency: %d, want 400", r.Status)
 	}
+
+	// USD by default, left out of links.
+	r = c.get("/simulator?seed=5")
+	if !strings.Contains(r.Body, "/currency:USD") || !strings.Contains(r.Body, `<option value="USD" selected>`) {
+		t.Error("default currency isn't USD")
+	}
+	if !strings.Contains(r.Body, `href="/simulator?expenses=12&amp;people=4"`) {
+		t.Error("New trip link should leave out the default currency")
+	}
+
+	// "seed" lets the seed pick, and links keep it.
+	r = c.get("/simulator?seed=5&currency=seed")
+	if want := sim.Run(sim.Params{Seed: 5, People: 4, Expenses: 12}).Currency.Code; !strings.Contains(r.Body, "/currency:"+want) {
+		t.Errorf("seed should pick %s", want)
+	}
+	if !strings.Contains(r.Body, `<option value="seed" selected>`) || !strings.Contains(r.Body, `href="/simulator?currency=seed&amp;expenses=12&amp;people=4"`) {
+		t.Error("seed-picked currency not kept")
+	}
 }
 
 func TestSimulatorBadParams(t *testing.T) {
@@ -176,7 +194,7 @@ func TestSimulatorExpensesAndPayments(t *testing.T) {
 	// After step 1 the new expense is the highlighted row.
 	one := c.get("/simulator?seed=42&people=4&expenses=12&at=1").Body
 	e := trip.Events[0].Expense
-	if strings.Count(one, `class="sim-new`) != 1 || !strings.Contains(one, "<td>"+e.Description) || !strings.Contains(one, "Day 1") {
+	if strings.Count(one, `class="sim-new`) != 1 || !strings.Contains(one, `<td class="quest">`+e.Description) || !strings.Contains(one, `<td class="nowrap">1</td>`) {
 		t.Errorf("step 1 should list and highlight %q:\n%s", e.Description, one)
 	}
 

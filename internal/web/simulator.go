@@ -28,7 +28,24 @@ import (
 const (
 	simPeople   = 4
 	simExpenses = 12
+	simCurrency = "USD"
 )
+
+// simSeedCurrency is the currency value that lets the seed pick one, as
+// an empty sim.Params.Currency does.
+const simSeedCurrency = "seed"
+
+// setCurrency adds c to a simulator URL's values. The default is left
+// out, and "" (the seed picks) is written as simSeedCurrency.
+func setCurrency(v url.Values, c string) {
+	switch c {
+	case simCurrency:
+	case "":
+		v.Set("currency", simSeedCurrency)
+	default:
+		v.Set("currency", c)
+	}
+}
 
 // simDelay is the autoplay pause between steps. sim.js types each terminal
 // block within simTypeMS (several characters per frame when a block is
@@ -59,9 +76,7 @@ func (q simQuery) URL() string {
 	v.Set("seed", strconv.FormatUint(q.Seed, 10))
 	v.Set("people", strconv.Itoa(q.People))
 	v.Set("expenses", strconv.Itoa(q.Expenses))
-	if q.Currency != "" {
-		v.Set("currency", q.Currency)
-	}
+	setCurrency(v, q.Currency)
 	v.Set("at", strconv.Itoa(q.At))
 	if q.Play {
 		v.Set("play", "1")
@@ -86,7 +101,7 @@ var (
 // parseSimQuery reads a simulator URL. People and Expenses are clamped;
 // At is clamped once the trip's length is known.
 func parseSimQuery(v url.Values) (simQuery, error) {
-	q := simQuery{Params: sim.Params{People: simPeople, Expenses: simExpenses}, Play: v.Get("play") == "1", Checks: v.Get("checks") == "1"}
+	q := simQuery{Params: sim.Params{People: simPeople, Expenses: simExpenses, Currency: simCurrency}, Play: v.Get("play") == "1", Checks: v.Get("checks") == "1"}
 	num := func(key string, dst *int) error {
 		if s := v.Get(key); s != "" {
 			n, err := strconv.Atoi(s)
@@ -107,7 +122,11 @@ func parseSimQuery(v url.Values) (simQuery, error) {
 		}
 		q.Seed = seed
 	}
-	if c := strings.ToUpper(strings.TrimSpace(v.Get("currency"))); c != "" {
+	switch c := strings.ToUpper(strings.TrimSpace(v.Get("currency"))); c {
+	case "": // keep the default
+	case strings.ToUpper(simSeedCurrency):
+		q.Currency = ""
+	default:
 		if _, ok := ledger.LookupCurrency(c); !ok {
 			return q, errSimCurrency
 		}
@@ -151,7 +170,7 @@ type simFailure struct {
 type simExpenseRow struct {
 	Day         int
 	Description string
-	Split       string
+	SplitType   ledger.SplitType
 	Payer       string
 	Amount      string
 	New         bool
@@ -238,9 +257,7 @@ func (v *simView) ChecksLink() string {
 // NewTrip is a link to a fresh seed with the same settings.
 func (v *simView) NewTrip() string {
 	q := url.Values{"people": {strconv.Itoa(v.Q.People)}, "expenses": {strconv.Itoa(v.Q.Expenses)}}
-	if v.Q.Currency != "" {
-		q.Set("currency", v.Q.Currency)
-	}
+	setCurrency(q, v.Q.Currency)
 	if v.Q.Checks {
 		q.Set("checks", "1")
 	}
@@ -406,12 +423,8 @@ func (v *simView) scene(ev sim.Event, settle, settles int) simScene {
 // addRow adds ev to the Expenses or Payments card.
 func (v *simView) addRow(ev sim.Event, isNew bool) {
 	if e := ev.Expense; e != nil {
-		parts := make([]string, len(e.Portions))
-		for i, p := range e.Portions {
-			parts[i] = v.Name(p.UserID) + " " + v.Money(p.Amount)
-		}
 		v.Expenses = append(v.Expenses, simExpenseRow{
-			Day: ev.Day, Description: e.Description, Split: string(e.SplitType) + ": " + strings.Join(parts, ", "),
+			Day: ev.Day, Description: e.Description, SplitType: e.SplitType,
 			Payer: v.Name(e.PayerID), Amount: v.Money(e.Amount), New: isNew,
 		})
 		return

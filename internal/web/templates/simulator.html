@@ -18,7 +18,7 @@
     <label>Expenses <input type="number" name="expenses" value="{{.Q.Expenses}}" min="5" max="40"></label>
     <label>Currency
       <select name="currency">
-        <option value="">Picked by the seed</option>
+        <option value="seed"{{if not .Q.Currency}} selected{{end}}>Picked by the seed</option>
         {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Q.Currency}} selected{{end}}>{{.Code}}</option>{{end}}
       </select>
     </label>
@@ -138,24 +138,25 @@
 </section>
 </div>
 
-<section class="card">
+<section class="card scroll">
   <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
   {{if .Expenses}}
+  <div class="table-wrap">
   <table class="expenses">
-    <thead><tr><th>Day</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th></tr></thead>
+    <thead><tr><th>Day</th><th>What</th><th>Type</th><th class="who">Paid by</th><th class="num">Amount</th></tr></thead>
     <tbody>
     {{range .Expenses}}
     <tr{{if .New}} class="sim-new"{{end}}>
-      <td class="nowrap">Day {{.Day}}</td>
-      <td>{{.Description}}
-        <div class="muted small">{{.Split}}</div>
-      </td>
-      <td class="who" data-label="Paid by">{{.Payer}}</td>
-      <td class="num">{{.Amount}}</td>
+      <td class="nowrap">{{.Day}}</td>
+      <td class="quest">{{.Description}}</td>
+      <td data-label="Type">{{template "split_tag" .SplitType}}</td>
+      <td class="who" data-label="Paid by"><strong>{{.Payer}}</strong></td>
+      <td class="num expense-amount">{{.Amount}}</td>
     </tr>
     {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
   <p class="muted">No expenses yet.</p>
   {{end}}

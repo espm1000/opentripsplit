@@ -54,20 +54,20 @@
 </section>
 </div>
 
-<section class="card">
+<section class="card scroll">
   <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
   {{if .Expenses}}
+  <div class="table-wrap">
   <table class="expenses">
-    <thead><tr><th>Date</th><th>What</th><th class="who">Paid by</th><th class="num">Amount</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>What</th><th>Type</th><th class="who">Paid by</th><th class="num">Amount</th><th></th></tr></thead>
     <tbody>
     {{range .Expenses}}
     <tr>
       <td class="nowrap">{{.SpentOn}}</td>
-      <td>{{.Description}}
-        <div class="muted small">{{.SplitType}}: {{range $i, $s := .Shares}}{{if $i}}, {{end}}{{$.Name $s.UserID}} {{$.Money $s.Amount}}{{end}}</div>
-      </td>
-      <td class="who" data-label="Paid by">{{$.Name .PayerID}}</td>
-      <td class="num">{{$.Money .Amount}}</td>
+      <td class="quest">{{.Description}}</td>
+      <td data-label="Type">{{template "split_tag" .SplitType}}</td>
+      <td class="who" data-label="Paid by"><strong>{{$.Name .PayerID}}</strong></td>
+      <td class="num expense-amount">{{$.Money .Amount}}</td>
       <td class="row-actions">
         {{if .CanEdit}}
         {{if not .Locked}}<a href="/groups/{{$g.ID}}/expenses/{{.ID}}/edit">Edit</a>{{end}}
@@ -78,6 +78,7 @@
     {{end}}
     </tbody>
   </table>
+  </div>
   {{else}}
   <p class="muted">No expenses yet.</p>
   {{end}}
