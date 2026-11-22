@@ -1,14 +1,5 @@
 {{define "content"}}
 <h1>Your groups</h1>
-{{if .Active}}
-<ul class="list">
-  {{range .Active}}
-  <li><a href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · created {{date .CreatedAt}}{{if eq .Role "owner"}} · owner{{end}}</span></li>
-  {{end}}
-</ul>
-{{else}}
-<p class="muted">No active groups yet. Create one below, or open an invite link from a friend.</p>
-{{end}}
 
 <section class="card">
   <h2>New group</h2>
@@ -24,12 +15,27 @@
   </form>
 </section>
 
-{{if .Archived}}
-<h2>Archived</h2>
-<ul class="list">
-  {{range .Archived}}
-  <li><a href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · archived {{date .ArchivedAt}}</span></li>
+<section class="card">
+  <h2>Current groups</h2>
+  {{if .Active}}
+  <ul class="list">
+    {{range .Active}}
+    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · created {{date .CreatedAt}}{{if eq .Role "owner"}} · owner{{end}}</span></li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">No active groups yet. Create one above, or open an invite link from a friend.</p>
   {{end}}
-</ul>
+</section>
+
+{{if .Archived}}
+<section class="card">
+  <h2>Archived groups</h2>
+  <ul class="list">
+    {{range .Archived}}
+    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · archived {{date .ArchivedAt}}</span></li>
+    {{end}}
+  </ul>
+</section>
 {{end}}
 {{end}}
