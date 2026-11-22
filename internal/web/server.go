@@ -253,7 +253,7 @@ type base struct {
 	Version string // release version, or commit SHA for a branch build
 }
 
-// Themes and TextSizes feed the preferences form in the footer.
+// Themes and TextSizes feed the preferences form in the header.
 func (base) Themes() []string    { return themes }
 func (base) TextSizes() []string { return textSizes }
 
