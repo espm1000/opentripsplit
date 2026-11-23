@@ -82,7 +82,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Generate SBOM
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
         with:
           path: .
           format: cyclonedx-json
@@ -99,7 +99,7 @@ jobs:
           so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
           so_branch_name: ${{ github.head_ref || github.ref_name }}
       - name: Scan SBOM
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
         with:
           sbom: opentripsplit.json
           fail-build: true
@@ -138,7 +138,7 @@ jobs:
           base=$(git rev-parse "origin/$DEFAULT_BRANCH")
           echo "Scanning $base..$GITHUB_SHA"
           echo "base=$base" >> "$GITHUB_OUTPUT"
-      - uses: trufflesecurity/trufflehog@d232362a64a09a9e7d58267b8f5acef00ae90e23 # v3.100.0
+      - uses: trufflesecurity/trufflehog@4ef51f69ca6347aaa76a5e64a87eac9c0c909f71 # v3.100.1
         with:
           base: ${{ steps.range.outputs.base }}
           head: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
