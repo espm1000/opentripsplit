@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: '1.27.4'
           cache: false
@@ -91,7 +91,7 @@ jobs:
       # upload_observations only imports vulnerabilities, so the SBOM needs upload_sbom.
       - name: Send SBOM to SecObserve
         if: ${{ !cancelled() && hashFiles('opentripsplit.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
           so_file_name: opentripsplit.json
@@ -111,7 +111,7 @@ jobs:
       # scans don't resolve each other's findings.
       - name: Send Grype results to SecObserve
         if: ${{ !cancelled() && hashFiles('grype_repo_results.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@d7e9250f6180fbad1c6b4ea712db8b2712fd4d2e # v2026_10
+        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
         with:
           so_api_token: ${{ secrets.SO_API_TOKEN }}
           so_file_name: grype_repo_results.json
@@ -138,7 +138,7 @@ jobs:
           base=$(git rev-parse "origin/$DEFAULT_BRANCH")
           echo "Scanning $base..$GITHUB_SHA"
           echo "base=$base" >> "$GITHUB_OUTPUT"
-      - uses: trufflesecurity/trufflehog@ea68ca03c865c5f324e86e849ced20ed3cf9dbbb # v3.99.8
+      - uses: trufflesecurity/trufflehog@d232362a64a09a9e7d58267b8f5acef00ae90e23 # v3.100.0
         with:
           base: ${{ steps.range.outputs.base }}
           head: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
