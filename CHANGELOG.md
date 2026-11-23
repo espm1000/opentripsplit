@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/espm1000/opentripsplit/compare/v0.4.0...v0.5.0) (2026-11-23)
+
+
+### Features
+
+* add your balance card ([d869e7f](https://github.com/espm1000/opentripsplit/commit/d869e7f33c0d400b6a1e6cb2765c817623215588))
+* **groups:** add your balance card, foldable cards, date settings and user menu ([cd6ea83](https://github.com/espm1000/opentripsplit/commit/cd6ea8327f6f0d3acf5b128b5cceb08bc6ea9c42))
+* **groups:** update your balance cards and expiry links ([9621c6a](https://github.com/espm1000/opentripsplit/commit/9621c6aef1e8b568b61ab821ef8506a3723cf976))
+
+
+### Bug Fixes
+
+* **deps:** update minor and patch ([4c01000](https://github.com/espm1000/opentripsplit/commit/4c01000976297a92c05ce4e6026f0a42bd580bd7))
+
 ## [0.4.0](https://github.com/espm1000/opentripsplit/compare/v0.3.0...v0.4.0) (2026-11-22)
 
 
