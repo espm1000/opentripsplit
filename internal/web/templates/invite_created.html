@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="card narrow">
   <h1>Invite link</h1>
-  <p>Share this link with the people you want in <strong>{{.Group.Name}}</strong>. Anyone with the link can join through {{.ExpiresAt}}.</p>
+  <p>Share this link with the people you want in <strong>{{.Group.Name}}</strong>. Anyone with the link can join until {{.ExpiresAt}}.</p>
   <input class="copy" readonly value="{{.URL}}" aria-label="Invite link">
   <p class="hint">This is the only time the link is shown. You can revoke it from the group page.</p>
   <p><a class="button" href="/groups/{{.Group.ID}}">Back to group</a></p>

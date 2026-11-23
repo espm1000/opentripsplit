@@ -36,14 +36,7 @@
     <li>
       <span class="row-text">{{$.Name .From}} pays {{$.Name .To}} <strong>{{$.Money .Amount}}</strong></span>
       <span class="row-act">
-        {{if .CanMark}}
-        <form method="post" action="/groups/{{$g.ID}}/settlements">
-          <input type="hidden" name="from" value="{{.From}}">
-          <input type="hidden" name="to" value="{{.To}}">
-          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
-          <button class="small">Mark paid</button>
-        </form>
-        {{end}}
+        {{template "mark_paid" .}}
       </span>
     </li>
     {{end}}
@@ -66,14 +59,7 @@
     <li>
       <span class="row-text">Pay <strong>{{$.Name .To}}</strong> {{$.Money .Amount}}</span>
       <span class="row-act">
-        {{if .CanMark}}
-        <form method="post" action="/groups/{{$g.ID}}/settlements">
-          <input type="hidden" name="from" value="{{.From}}">
-          <input type="hidden" name="to" value="{{.To}}">
-          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
-          <button class="small">Mark paid</button>
-        </form>
-        {{end}}
+        {{template "mark_paid" .}}
       </span>
     </li>
     {{end}}
@@ -85,14 +71,7 @@
     <li>
       <span class="row-text"><strong>{{$.Name .From}}</strong> borrowed {{$.Money .Amount}}</span>
       <span class="row-act">
-        {{if .CanMark}}
-        <form method="post" action="/groups/{{$g.ID}}/settlements">
-          <input type="hidden" name="from" value="{{.From}}">
-          <input type="hidden" name="to" value="{{.To}}">
-          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
-          <button class="small">Mark paid</button>
-        </form>
-        {{end}}
+        {{template "mark_paid" .}}
       </span>
     </li>
     {{end}}

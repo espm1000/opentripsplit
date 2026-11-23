@@ -1044,3 +1044,21 @@ func TestSplitTag(t *testing.T) {
 		t.Error("split type still has a symbol")
 	}
 }
+
+func TestInviteCreatedShowsExpiryTime(t *testing.T) {
+	e := newEnv(t)
+	ana := e.login("ana")
+	g := ana.createGroup("Lisbon", "EUR")
+	// The link stops working partway through its last day, so the page
+	// gives the exact time, in the viewer's date and clock format.
+	until := regexp.MustCompile(`can join until (\S+ \S+(?: [AP]M)? UTC)\.`)
+	body := ana.mustPost(fmt.Sprintf("/groups/%d/invites", g), nil).Body
+	if m := until.FindStringSubmatch(body); m == nil || !regexp.MustCompile(`^\d\d/\d\d/\d{4} \d{1,2}:\d\d [AP]M UTC$`).MatchString(m[1]) {
+		t.Errorf("invite expiry not shown as a US date with 12-hour time: %v", m)
+	}
+	ana.mustPost("/prefs", url.Values{"dates": {"iso"}, "clock": {"24h"}})
+	body = ana.mustPost(fmt.Sprintf("/groups/%d/invites", g), nil).Body
+	if m := until.FindStringSubmatch(body); m == nil || !regexp.MustCompile(`^\d{4}-\d\d-\d\d \d\d:\d\d UTC$`).MatchString(m[1]) {
+		t.Errorf("invite expiry not shown as an ISO date with 24-hour time: %v", m)
+	}
+}

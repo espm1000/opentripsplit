@@ -115,9 +115,13 @@ func rankBalances(rows []balanceRow) {
 	}
 }
 
+// paymentRow is a suggested settle-up payment. GroupID and Decimals let the
+// mark_paid template build its form from the row alone.
 type paymentRow struct {
 	ledger.Payment
-	CanMark bool
+	CanMark  bool
+	GroupID  int64
+	Decimals int
 }
 
 func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error) {
@@ -156,7 +160,7 @@ func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error
 	d.MyBalance = bal[gc.User.ID]
 	for _, p := range ledger.SettleUp(bal) {
 		canMark := writable && (p.From == gc.User.ID || p.To == gc.User.ID || gc.IsOwner())
-		row := paymentRow{p, canMark}
+		row := paymentRow{Payment: p, CanMark: canMark, GroupID: gc.Group.ID, Decimals: gc.Group.Decimals()}
 		d.SettleUp = append(d.SettleUp, row)
 		switch gc.User.ID {
 		case p.From:
@@ -258,7 +262,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, gc *groupC
 		base:      b,
 		Group:     gc.Group,
 		URL:       s.baseURL.JoinPath("invite", token).String(), // #nosec G125 -- token is base64url from NewToken: no "/" or ".."
-		ExpiresAt: b.Date(inv.ExpiresAt),
+		ExpiresAt: b.Stamp(inv.ExpiresAt),
 	})
 }
 

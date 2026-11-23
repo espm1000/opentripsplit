@@ -26,6 +26,17 @@
 {{end}}
 {{end}}
 
+{{/* The "Mark paid" button for a settle-up row (a paymentRow), shown
+     only to people who may record it. */}}
+{{define "mark_paid"}}{{if .CanMark}}
+<form method="post" action="/groups/{{.GroupID}}/settlements">
+  <input type="hidden" name="from" value="{{.From}}">
+  <input type="hidden" name="to" value="{{.To}}">
+  <input type="hidden" name="amount" value="{{amount .Amount .Decimals}}">
+  <button class="small">Mark paid</button>
+</form>
+{{end}}{{end}}
+
 {{/* The split type as a tag: just its name. */}}
 {{define "split_tag"}}<span class="split-tag">{{.}}</span>{{end}}
 
