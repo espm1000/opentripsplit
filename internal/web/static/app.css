@@ -59,6 +59,7 @@
   --danger: #86251C;
   --on-danger: #FAF4E4;
   --link: #1A4475;
+  --on-link: #FAF4E4;
   --focus: #244A70;
   /* The simulator's terminal is dark in both themes. */
   --term-bg: #17161C;
@@ -90,6 +91,7 @@
     --danger: #F4978E;
     --on-danger: #1C1B22;
     --link: #9CCFF2;
+    --on-link: #1C1B22;
     --focus: #F2C14E;
     --term-bg: #17161C;
     --term-text: #E6E1D3;
@@ -116,6 +118,7 @@
   --danger: #F4978E;
   --on-danger: #1C1B22;
   --link: #9CCFF2;
+  --on-link: #1C1B22;
   --focus: #F2C14E;
   --term-bg: #17161C;
   --term-text: #E6E1D3;
@@ -170,8 +173,9 @@ code { font-family: ui-monospace, monospace; font-size: 0.9em; overflow-wrap: an
   object-fit: contain;
 }
 
-/* Header: the brand and menu on the left, display settings on the right.
-   Every menu entry, Log out included, uses the brand's pixel lettering. */
+/* Header: the brand and main links on the left; the user menu (account,
+   display settings, log out) on the right. Header links and the menu's
+   name use the brand's pixel lettering. */
 .top {
   display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; justify-content: space-between;
   padding: 0.75rem 1rem;
@@ -179,12 +183,11 @@ code { font-family: ui-monospace, monospace; font-size: 0.9em; overflow-wrap: an
   border-bottom: calc(var(--bw) + 1px) solid var(--border);
 }
 .top nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; }
-.top nav form { margin: 0; }
-.brand, .top nav a, .top nav button.link {
+.brand, .top nav a {
   font-family: var(--pixel); font-size: 1.4rem; font-weight: 700; letter-spacing: 0.02em;
   color: var(--text); text-decoration: none; display: inline-flex; align-items: center;
 }
-.top nav a:hover, .top nav button.link:hover {
+.top nav a:hover {
   text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 .brand .icon { width: 2em; height: 2em; }
@@ -194,9 +197,34 @@ footer {
   color: var(--muted); font-size: 0.9rem;
   border-top: var(--bw) solid var(--border);
 }
-.prefs { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; }
-.prefs label { display: flex; gap: 0.4rem; align-items: center; }
-.prefs select { width: auto; }
+/* The user menu: the name opens a panel that drops down from the right
+   edge. margin-left: auto keeps it on the right even when the header wraps. */
+.user-menu { position: relative; margin-left: auto; }
+.user-menu > summary {
+  list-style: none; margin: 0; display: inline-flex; align-items: center; gap: 0.4em;
+  font-size: 1.4rem; font-weight: 700; color: var(--text);
+}
+.user-menu > summary::-webkit-details-marker { display: none; }
+.user-menu > summary::after { content: "▼"; content: "▼" / ""; font-size: 0.6em; }
+.user-menu[open] > summary::after { content: "▲"; content: "▲" / ""; }
+.user-menu > summary:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.menu-panel {
+  position: absolute; right: var(--bw); top: calc(100% + 0.75rem); z-index: 10;
+  width: max-content; min-width: 16rem; max-width: calc(100vw - 2rem);
+  display: grid; gap: 0.75rem;
+  background: var(--surface);
+  padding: 1rem 1.25rem;
+  box-shadow:
+    0 calc(-1 * var(--bw)) 0 0 var(--border),
+    0 var(--bw) 0 0 var(--border),
+    calc(-1 * var(--bw)) 0 0 0 var(--border),
+    var(--bw) 0 0 0 var(--border);
+}
+.menu-panel form { margin: 0; }
+/* Account and Log out are full-width buttons above and below the settings. */
+.menu-panel .logout button { width: calc(100% - 2 * var(--bw)); }
+.prefs { display: grid; gap: 0.6rem; }
+.prefs button { justify-self: start; }
 
 .dev-banner {
   background: var(--danger); color: var(--on-danger);
@@ -294,6 +322,14 @@ footer {
 .points { font-weight: 700; font-size: 1.4rem; line-height: 1.15; letter-spacing: 0.04em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .score .small { white-space: nowrap; }
 
+/* Heading on the left, the balance (▲ owed or ▼ owing) on the right of the
+   same line. */
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.25rem 1rem; margin-bottom: 0.75rem; }
+.card-head h2 { margin: 0; }
+/* A rule under the heading and total, as thick as the high-score board's,
+   sets them apart from the payments below. */
+.my-balance .card-head { padding-bottom: 0.5rem; border-bottom: var(--bw) solid var(--border); }
+
 /* Rows with actions: text on the left, actions anchored in a right-hand
    column, so buttons line up down the list however long the text is.
    Every row gets the same minimum height whether or not it has a button. */
@@ -340,9 +376,8 @@ th { font-size: 0.9rem; color: var(--muted); font-weight: 700; }
   box-shadow: 0 0 0 2px var(--border);
 }
 
-/* The split type: its symbol, then its name in uppercase. */
+/* The split type: its name in uppercase. */
 .split-tag { white-space: nowrap; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.split-sym { font-size: 1.1em; margin-right: 0.35em; }
 
 /* A card drawn as an RPG scroll: parchment between two rolled ends. Each
    roll has a line where the sheet curls in and a knob poking out at both
@@ -420,6 +455,9 @@ button:active, .button:active {
 }
 button.secondary, .button.secondary { background: var(--surface); color: var(--text); }
 button.danger { background: var(--danger); color: var(--on-danger); }
+/* Blue in both themes (the accent is gold at night), for links that need
+   to stand apart from the main action, like Account in the user menu. */
+.button.info, button.info { background: var(--link); color: var(--on-link); }
 button.small { font-size: 0.95rem; min-height: 2.2rem; padding: 0.25rem 0.75rem; }
 button.wide { width: calc(100% - 2 * var(--bw)); }
 button::before, .button::before { content: "▶"; font-size: 0.7em; }
@@ -441,6 +479,14 @@ button.link.danger { color: var(--danger); background: none; }
   calc(-1 * var(--bw)) 0 0 0 var(--danger),
   var(--bw) 0 0 0 var(--danger); }
 details summary { cursor: pointer; margin: 0.75rem 0; color: var(--link); font-weight: 700; }
+/* Collapsible cards: the whole heading is the toggle, with a pixel arrow
+   at the right that points down when the card is open. */
+details.fold > summary { list-style: none; display: flex; align-items: center; gap: 0.75rem; margin: 0; color: var(--text); }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary h2 { margin: 0; }
+details.fold > summary::after { content: "▶"; content: "▶" / ""; margin-left: auto; font-size: 0.9rem; }
+details.fold[open] > summary { margin-bottom: 0.75rem; }
+details.fold[open] > summary::after { content: "▼"; content: "▼" / ""; }
 .dev-login { border-top: var(--bw) dashed var(--border); margin-top: 1.25rem; padding-top: 0.5rem; }
 
 /* Simulator (simulator.html). Art and motion come from vendored

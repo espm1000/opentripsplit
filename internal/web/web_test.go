@@ -619,6 +619,10 @@ func TestArchivedGroupRejectsWrites(t *testing.T) {
 	if page.Status != 200 || !strings.Contains(page.Body, "Dinner") || strings.Contains(page.Body, "Add expense") {
 		t.Fatal("archived group page should show history without add button")
 	}
+	// The owner settings start open on an archived group so Unarchive is in view.
+	if !strings.Contains(page.Body, `<details class="fold" open>`) {
+		t.Error("owner settings should start open on an archived group")
+	}
 	ana.mustPost(fmt.Sprintf("/groups/%d/unarchive", g), nil)
 	if r := ana.addEqualExpense(g, "Taxi", "5", ana.ID, ana.ID); r.Status != http.StatusSeeOther {
 		t.Fatalf("add after unarchive: %d", r.Status)
@@ -880,10 +884,163 @@ func TestHighScoreBoard(t *testing.T) {
 	}
 }
 
+func TestYourBalanceCard(t *testing.T) {
+	e := newEnv(t)
+	ana, bo, cy, di := e.login("ana"), e.login("bo"), e.login("cy"), e.login("di")
+	g := ana.createGroup("Vegas 2026", "USD")
+	tok := ana.invite(g)
+	bo.join(tok)
+	cy.join(tok)
+	di.join(tok)
+	// Same as TestHighScoreBoard: bo +60, cy −24, ana −36, di 0. Settle up
+	// suggests ana → bo 36 and cy → bo 24.
+	bo.addEqualExpense(g, "Buffet", "90", bo.ID, ana.ID, bo.ID, cy.ID)
+	cy.addEqualExpense(g, "Cab", "12", cy.ID, ana.ID, cy.ID)
+	path := fmt.Sprintf("/groups/%d", g)
+
+	card := func(c *client) string {
+		t.Helper()
+		body := c.get(path).Body
+		i, j := strings.Index(body, `class="card my-balance"`), strings.Index(body, `class="card scroll"`)
+		if i < 0 || j < 0 || i > j {
+			t.Fatalf("your balance card missing or not above the expenses:\n%s", body)
+		}
+		return body[i:j]
+	}
+	inOrder := func(who, got string, want ...string) {
+		t.Helper()
+		for _, w := range want {
+			k := strings.Index(got, w)
+			if k < 0 {
+				t.Fatalf("%s's card missing %q (or out of order):\n%s", who, w, got)
+			}
+			got = got[k+len(w):]
+		}
+	}
+
+	c := card(ana)
+	// What ana owes sits on the heading line too, after "Your balance".
+	inOrder("ana", c, "Your balance</h2>", `<span aria-hidden="true">▼</span><span class="sr-only">You owe</span> 36.00`+"\u00a0USD</span>", "</div>", "Pay <strong>bo</strong> 36.00\u00a0USD", "Mark paid")
+	if strings.Contains(c, "borrowed") {
+		t.Error("ana is owed nothing but the card lists borrowers")
+	}
+
+	c = card(bo)
+	// What bo is owed sits on the heading line, after "Your balance".
+	inOrder("bo", c, "Your balance</h2>", `<span aria-hidden="true">▲</span><span class="sr-only">You're owed</span> 60.00`+"\u00a0USD</span>", "</div>",
+		"<strong>ana</strong> borrowed 36.00\u00a0USD", "Mark paid",
+		"<strong>cy</strong> borrowed 24.00\u00a0USD", "Mark paid")
+	if strings.Contains(c, "Pay <strong>") {
+		t.Error("bo owes nothing but the card lists payments to make")
+	}
+
+	settled := func(who, c string) {
+		t.Helper()
+		for _, s := range []string{"▲", "▼", "Pay <strong>", "borrowed", "all square"} {
+			if strings.Contains(c, s) {
+				t.Errorf("%s is settled, so the card should be empty below the heading, but has %q:\n%s", who, s, c)
+			}
+		}
+	}
+	settled("di", card(di))
+
+	// Payments, Members and Owner settings are collapsible and start closed.
+	body := ana.get(path).Body
+	if n := strings.Count(body, `<details class="fold">`); n != 3 {
+		t.Errorf("want Payments, Members and Owner settings as 3 closed fold cards, got %d", n)
+	}
+	if !strings.Contains(body, `<summary><h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments`) {
+		t.Error("Payments heading is not the fold's toggle")
+	}
+	if body = bo.get(path).Body; strings.Count(body, `<details class="fold">`) != 2 || strings.Contains(body, "Owner settings") {
+		t.Error("a non-owner should see only the Payments and Members folds")
+	}
+
+	// Marking your payment from the card settles you up.
+	ana.mustPost(path+"/settlements", url.Values{"from": {itoa(ana.ID)}, "to": {itoa(bo.ID)}, "amount": {"36.00"}})
+	settled("ana", card(ana))
+}
+
+func TestTimeFmt(t *testing.T) {
+	at := time.Date(1986, 11, 18, 15, 7, 0, 0, time.UTC)
+	for _, c := range []struct {
+		f                timeFmt
+		date, day, stamp string
+	}{
+		{timeFmt{"us", "12h"}, "11/18/1986", "07/01/2026", "11/18/1986 3:07 PM UTC"},
+		{timeFmt{"us", "24h"}, "11/18/1986", "07/01/2026", "11/18/1986 15:07 UTC"},
+		{timeFmt{"iso", "12h"}, "1986-11-18", "2026-07-01", "1986-11-18 3:07 PM UTC"},
+		{timeFmt{"iso", "24h"}, "1986-11-18", "2026-07-01", "1986-11-18 15:07 UTC"},
+	} {
+		if got := c.f.Date(at); got != c.date {
+			t.Errorf("%v Date = %q, want %q", c.f, got, c.date)
+		}
+		if got := c.f.Day("2026-07-01"); got != c.day {
+			t.Errorf("%v Day = %q, want %q", c.f, got, c.day)
+		}
+		if got := c.f.Stamp(at); got != c.stamp {
+			t.Errorf("%v Stamp = %q, want %q", c.f, got, c.stamp)
+		}
+	}
+	if got := (timeFmt{"us", "12h"}).Day("not a date"); got != "not a date" {
+		t.Errorf("bad Day input changed to %q", got)
+	}
+}
+
+func TestDatesFollowPrefs(t *testing.T) {
+	e := newEnv(t)
+	ana := e.login("ana")
+	g := ana.createGroup("Lisbon", "EUR")
+	ana.addEqualExpense(g, "Dinner", "10", ana.ID, ana.ID) // spent on 2026-07-01
+	path, hist := fmt.Sprintf("/groups/%d", g), fmt.Sprintf("/groups/%d/history", g)
+	stamp := regexp.MustCompile(`<td class="muted small nowrap">([^<]*)</td>`)
+
+	// US dates and a 12-hour clock by default.
+	if body := ana.get(path).Body; !strings.Contains(body, `<td class="nowrap">07/01/2026</td>`) {
+		t.Error("expense date not in US format by default")
+	}
+	body := ana.get(hist).Body
+	if !strings.Contains(body, "Dinner&#34;, 07/01/2026,") {
+		t.Error("history expense date not in US format by default")
+	}
+	if m := stamp.FindStringSubmatch(body); m == nil || !regexp.MustCompile(`^\d\d/\d\d/\d{4} \d{1,2}:\d\d [AP]M UTC$`).MatchString(m[1]) {
+		t.Errorf("history timestamp not US 12-hour: %v", m)
+	}
+	if body := ana.get("/groups").Body; !regexp.MustCompile(`created \d\d/\d\d/\d{4}`).MatchString(body) {
+		t.Error("group list date not in US format")
+	}
+
+	ana.mustPost("/prefs", url.Values{"dates": {"iso"}, "clock": {"24h"}, "next": {path}})
+	if body := ana.get(path).Body; !strings.Contains(body, `<td class="nowrap">2026-07-01</td>`) {
+		t.Error("expense date not in ISO format after choosing ISO")
+	}
+	body = ana.get(hist).Body
+	if !strings.Contains(body, "Dinner&#34;, 2026-07-01,") {
+		t.Error("history expense date not in ISO format after choosing ISO")
+	}
+	if m := stamp.FindStringSubmatch(body); m == nil || !regexp.MustCompile(`^\d{4}-\d\d-\d\d \d\d:\d\d UTC$`).MatchString(m[1]) {
+		t.Errorf("history timestamp not ISO 24-hour: %v", m)
+	}
+}
+
 func TestOrdinal(t *testing.T) {
 	for n, want := range map[int]string{1: "1ST", 2: "2ND", 3: "3RD", 4: "4TH", 11: "11TH", 12: "12TH", 13: "13TH", 21: "21ST", 22: "22ND", 101: "101ST", 111: "111TH"} {
 		if got := ordinal(n); got != want {
 			t.Errorf("ordinal(%d) = %s, want %s", n, got, want)
 		}
+	}
+}
+
+func TestSplitTag(t *testing.T) {
+	e := newEnv(t)
+	ana := e.login("ana")
+	g := ana.createGroup("Lisbon", "EUR")
+	ana.addEqualExpense(g, "Dinner", "10", ana.ID, ana.ID)
+	body := ana.get(fmt.Sprintf("/groups/%d", g)).Body
+	if !strings.Contains(body, `<span class="split-tag">equal</span>`) {
+		t.Errorf("equal split should show its name with no symbol:\n%s", body)
+	}
+	if strings.Contains(body, "split-sym") {
+		t.Error("split type still has a symbol")
 	}
 }

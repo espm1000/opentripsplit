@@ -54,6 +54,52 @@
 </section>
 </div>
 
+<section class="card my-balance">
+  <div class="card-head">
+    <h2><img class="icon" src="/static/icons/coin.svg" alt="">Your balance</h2>
+    {{if gt .MyBalance 0}}<span class="points pos"><span aria-hidden="true">▲</span><span class="sr-only">You're owed</span> {{$.Money .MyBalance}}</span>
+    {{else if lt .MyBalance 0}}<span class="points neg"><span aria-hidden="true">▼</span><span class="sr-only">You owe</span> {{$.Money (abs .MyBalance)}}</span>{{end}}
+  </div>
+  {{if .MyPays}}
+  <ul class="list rows">
+    {{range .MyPays}}
+    <li>
+      <span class="row-text">Pay <strong>{{$.Name .To}}</strong> {{$.Money .Amount}}</span>
+      <span class="row-act">
+        {{if .CanMark}}
+        <form method="post" action="/groups/{{$g.ID}}/settlements">
+          <input type="hidden" name="from" value="{{.From}}">
+          <input type="hidden" name="to" value="{{.To}}">
+          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
+          <button class="small">Mark paid</button>
+        </form>
+        {{end}}
+      </span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  {{if .MyGets}}
+  <ul class="list rows">
+    {{range .MyGets}}
+    <li>
+      <span class="row-text"><strong>{{$.Name .From}}</strong> borrowed {{$.Money .Amount}}</span>
+      <span class="row-act">
+        {{if .CanMark}}
+        <form method="post" action="/groups/{{$g.ID}}/settlements">
+          <input type="hidden" name="from" value="{{.From}}">
+          <input type="hidden" name="to" value="{{.To}}">
+          <input type="hidden" name="amount" value="{{amount .Amount $g.Decimals}}">
+          <button class="small">Mark paid</button>
+        </form>
+        {{end}}
+      </span>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+</section>
+
 <section class="card scroll">
   <h2><img class="icon" src="/static/icons/scroll.svg" alt="">Expenses</h2>
   {{if .Expenses}}
@@ -63,7 +109,7 @@
     <tbody>
     {{range .Expenses}}
     <tr>
-      <td class="nowrap">{{.SpentOn}}</td>
+      <td class="nowrap">{{$.Day .SpentOn}}</td>
       <td class="quest">{{.Description}}</td>
       <td data-label="Type">{{template "split_tag" .SplitType}}</td>
       <td class="who" data-label="Paid by"><strong>{{$.Name .PayerID}}</strong></td>
@@ -85,12 +131,13 @@
 </section>
 
 <section class="card">
-  <h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments</h2>
+  <details class="fold">
+  <summary><h2><img class="icon" src="/static/icons/coin.svg" alt="">Payments <span class="muted small">{{len .Settlements}}</span></h2></summary>
   {{if .Settlements}}
   <ul class="list rows">
     {{range .Settlements}}
     <li>
-      <span class="row-text">{{$.Name .From}} paid {{$.Name .To}} <strong>{{$.Money .Amount}}</strong> <span class="muted small nowrap">{{date .CreatedAt}}</span></span>
+      <span class="row-text">{{$.Name .From}} paid {{$.Name .To}} <strong>{{$.Money .Amount}}</strong> <span class="muted small nowrap">{{$.Date .CreatedAt}}</span></span>
       <span class="row-act">
         {{if .CanDelete}}<form method="post" action="/groups/{{$g.ID}}/settlements/{{.ID}}/delete"><button class="link danger">Delete</button></form>{{end}}
       </span>
@@ -111,10 +158,12 @@
     </form>
   </details>
   {{end}}
+  </details>
 </section>
 
 <section class="card">
-  <h2><img class="icon" src="/static/icons/heart.svg" alt="">Members</h2>
+  <details class="fold">
+  <summary><h2><img class="icon" src="/static/icons/heart.svg" alt="">Members <span class="muted small">{{len .Members}}</span></h2></summary>
   <ul class="list rows">
     {{range .Members}}
     <li{{if not .Active}} class="muted"{{end}}>
@@ -132,11 +181,13 @@
   {{if and (not .IsOwner) (not $archived)}}
   <form method="post" action="/groups/{{$g.ID}}/leave"><button class="secondary">Leave group</button></form>
   {{end}}
+  </details>
 </section>
 
 {{if .IsOwner}}
 <section class="card">
-  <h2><img class="icon" src="/static/icons/key.svg" alt="">Owner settings</h2>
+  <details class="fold"{{if $archived}} open{{end}}>
+  <summary><h2><img class="icon" src="/static/icons/key.svg" alt="">Owner settings</h2></summary>
   {{if not $archived}}
   <h3>Invite links</h3>
   <form method="post" action="/groups/{{$g.ID}}/invites"><button>Create invite link</button></form>
@@ -144,7 +195,7 @@
   <ul class="list rows">
     {{range .Invites}}
     <li>
-      <span class="row-text">Link #{{.ID}} <span class="muted small">created {{date .CreatedAt}}, expires {{datetime .ExpiresAt}}</span></span>
+      <span class="row-text">Link #{{.ID}} <span class="muted small">created {{$.Date .CreatedAt}}, expires {{$.Date .ExpiresAt}}</span></span>
       <span class="row-act"><form method="post" action="/groups/{{$g.ID}}/invites/{{.ID}}/revoke"><button class="link danger">Revoke</button></form></span>
     </li>
     {{end}}
@@ -168,6 +219,7 @@
   {{else}}
   <form method="post" action="/groups/{{$g.ID}}/unarchive"><button>Unarchive group</button></form>
   {{end}}
+  </details>
 </section>
 {{end}}
 {{end}}

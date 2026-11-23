@@ -74,11 +74,9 @@ func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server
 		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, version: o.Version, log: o.Log, pages: map[string]*template.Template{},
 	}
 	funcs := template.FuncMap{
-		"date":     func(t time.Time) string { return t.Format("2 Jan 2006") },
-		"datetime": func(t time.Time) string { return t.Format("2 Jan 2006 15:04 MST") },
-		"amount":   ledger.FormatAmount,
-		"abs":      func(v int64) int64 { return max(v, -v) },
-		"ordinal":  ordinal,
+		"amount":  ledger.FormatAmount,
+		"abs":     func(v int64) int64 { return max(v, -v) },
+		"ordinal": ordinal,
 	}
 	pages, err := fs.Glob(templatesFS, "templates/*.html")
 	if err != nil {
@@ -253,17 +251,22 @@ type base struct {
 	Size    string // normal, large or huge
 	Path    string // where the preferences form returns to
 	Version string // release version or commit SHA; empty when logged out
+	timeFmt        // date and clock format (see prefs.go)
 }
 
-// Themes and TextSizes feed the preferences form in the header.
-func (base) Themes() []string    { return themes }
-func (base) TextSizes() []string { return textSizes }
+// Themes, TextSizes, DateStyles and ClockStyles feed the preferences form
+// in the header.
+func (base) Themes() []string      { return themes }
+func (base) TextSizes() []string   { return textSizes }
+func (base) DateStyles() []string  { return dateStyles }
+func (base) ClockStyles() []string { return clockStyles }
 
 func (s *Server) base(r *http.Request, title string) base {
 	b := base{
 		Title: title, DevAuth: s.devAuth, Sim: s.simulator,
 		Theme: pref(r, themeCookie, themes), Size: pref(r, sizeCookie, textSizes),
-		Path: "/",
+		timeFmt: timeFmt{Dates: pref(r, datesCookie, dateStyles), Clock: pref(r, clockCookie, clockStyles)},
+		Path:    "/",
 	}
 	// After a POST there's no page to return to, so the form goes home.
 	if r.Method == http.MethodGet {

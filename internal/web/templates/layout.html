@@ -1,5 +1,5 @@
 {{define "layout"}}<!doctype html>
-<html lang="en" data-theme="{{.Theme}}" data-size="{{.Size}}">
+<html lang="en-US" data-theme="{{.Theme}}" data-size="{{.Size}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,6 +10,7 @@
 <link rel="preload" href="/static/fonts/pixelify-sans-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
+<script src="/static/menu.js" defer></script>
 {{block "head" .}}{{end}}
 </head>
 <body>
@@ -22,24 +23,39 @@
     <a href="/groups">Groups</a>
     {{if .IsAdmin}}<a href="/admin">Admin</a>{{end}}
     {{if $.DevAuth}}<a href="/login?switch=1">Switch user</a>{{end}}
-    <a href="/account">{{.DisplayName}}</a>
-    <form method="post" action="/logout"><button class="link">Log out</button></form>
     {{end}}
   </nav>
-  <form method="post" action="/prefs" class="prefs" aria-label="Display settings">
-    <input type="hidden" name="next" value="{{.Path}}">
-    <label>Theme
-      <select name="theme">
-        {{range .Themes}}<option value="{{.}}"{{if eq . $.Theme}} selected{{end}}>{{if eq . "system"}}Match device{{else if eq . "dark"}}Night (dark){{else}}Parchment (light){{end}}</option>{{end}}
-      </select>
-    </label>
-    <label>Text size
-      <select name="size">
-        {{range .TextSizes}}<option value="{{.}}"{{if eq . $.Size}} selected{{end}}>{{if eq . "normal"}}Normal{{else if eq . "large"}}Large{{else}}Huge{{end}}</option>{{end}}
-      </select>
-    </label>
-    <button class="secondary small">Apply</button>
-  </form>
+  <details class="user-menu">
+    <summary>{{with .User}}{{.DisplayName}}{{else}}Settings{{end}}</summary>
+    <div class="menu-panel">
+      {{with .User}}<a class="button info" href="/account">Account</a>{{end}}
+      <form method="post" action="/prefs" class="prefs" aria-label="Display settings">
+        <input type="hidden" name="next" value="{{.Path}}">
+        <label>Theme
+          <select name="theme">
+            {{range .Themes}}<option value="{{.}}"{{if eq . $.Theme}} selected{{end}}>{{if eq . "system"}}Match device{{else if eq . "dark"}}Night (dark){{else}}Parchment (light){{end}}</option>{{end}}
+          </select>
+        </label>
+        <label>Text size
+          <select name="size">
+            {{range .TextSizes}}<option value="{{.}}"{{if eq . $.Size}} selected{{end}}>{{if eq . "normal"}}Normal{{else if eq . "large"}}Large{{else}}Huge{{end}}</option>{{end}}
+          </select>
+        </label>
+        <label>Dates
+          <select name="dates">
+            {{range .DateStyles}}<option value="{{.}}"{{if eq . $.Dates}} selected{{end}}>{{if eq . "us"}}11/18/1986 (US){{else}}1986-11-18 (ISO){{end}}</option>{{end}}
+          </select>
+        </label>
+        <label>Clock
+          <select name="clock">
+            {{range .ClockStyles}}<option value="{{.}}"{{if eq . $.Clock}} selected{{end}}>{{if eq . "12h"}}12-hour{{else}}24-hour{{end}}</option>{{end}}
+          </select>
+        </label>
+        <button class="secondary small">Apply</button>
+      </form>
+      {{with .User}}<form method="post" action="/logout" class="logout"><button class="danger">Log out</button></form>{{end}}
+    </div>
+  </details>
 </header>
 <main>
 {{template "content" .}}

@@ -20,7 +20,7 @@
   {{if .Active}}
   <ul class="list">
     {{range .Active}}
-    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · created {{date .CreatedAt}}{{if eq .Role "owner"}} · owner{{end}}</span></li>
+    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · created {{$.Date .CreatedAt}}{{if eq .Role "owner"}} · owner{{end}}</span></li>
     {{end}}
   </ul>
   {{else}}
@@ -33,7 +33,7 @@
   <h2>Archived groups</h2>
   <ul class="list">
     {{range .Archived}}
-    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · archived {{date .ArchivedAt}}</span></li>
+    <li><a class="button secondary" href="/groups/{{.ID}}">{{.Name}}</a> <span class="muted">{{.Currency}} · archived {{$.Date .ArchivedAt}}</span></li>
     {{end}}
   </ul>
 </section>

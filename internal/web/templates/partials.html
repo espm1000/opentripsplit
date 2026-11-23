@@ -26,8 +26,8 @@
 {{end}}
 {{end}}
 
-{{/* The split type as a tag; the symbol tells types apart without color. */}}
-{{define "split_tag"}}<span class="split-tag"><span class="split-sym" aria-hidden="true">{{if eq . "equal"}}={{else if eq . "exact"}}#{{else if eq . "percent"}}%{{else}}÷{{end}}</span>{{.}}</span>{{end}}
+{{/* The split type as a tag: just its name. */}}
+{{define "split_tag"}}<span class="split-tag">{{.}}</span>{{end}}
 
 {{define "provider_fields"}}
 {{range .}}

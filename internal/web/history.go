@@ -12,8 +12,8 @@ import (
 
 // describe turns an audit entry into a sentence. Audit payloads hold user
 // IDs only; names are looked up now, so a deleted account shows as
-// "Former member #N".
-func describe(d *groupData, e store.AuditEntry) historyRow {
+// "Former member #N". Dates are formatted with f.
+func describe(d *groupData, f timeFmt, e store.AuditEntry) historyRow {
 	row := historyRow{AuditEntry: e, Actor: d.Name(e.ActorID)}
 	switch e.Entity {
 	case "expense":
@@ -23,11 +23,11 @@ func describe(d *groupData, e store.AuditEntry) historyRow {
 		verb := map[string]string{"create": "added", "update": "edited", "delete": "deleted"}[e.Action]
 		row.Summary = fmt.Sprintf("%s expense #%d", verb, e.EntityID)
 		if before != nil && after != nil {
-			row.Details = []string{"Before: " + expenseText(d, before), "After: " + expenseText(d, after)}
+			row.Details = []string{"Before: " + expenseText(d, f, before), "After: " + expenseText(d, f, after)}
 		} else if after != nil {
-			row.Details = []string{expenseText(d, after)}
+			row.Details = []string{expenseText(d, f, after)}
 		} else if before != nil {
-			row.Details = []string{expenseText(d, before)}
+			row.Details = []string{expenseText(d, f, before)}
 		}
 	case "settlement":
 		var st *store.SettlementAudit
@@ -76,7 +76,7 @@ func describe(d *groupData, e store.AuditEntry) historyRow {
 			var inv *store.InviteAudit
 			decode(e.After, &inv)
 			if inv != nil {
-				row.Details = []string{"Expires " + time.Unix(inv.ExpiresAt, 0).UTC().Format("2 Jan 2006 15:04 MST")}
+				row.Details = []string{"Expires " + f.Date(time.Unix(inv.ExpiresAt, 0).UTC())}
 			}
 		case "revoke":
 			row.Summary = fmt.Sprintf("revoked invite link #%d", e.EntityID)
@@ -98,7 +98,7 @@ func decode[T any](raw json.RawMessage, dst **T) {
 	}
 }
 
-func expenseText(d *groupData, a *store.ExpenseAudit) string {
+func expenseText(d *groupData, f timeFmt, a *store.ExpenseAudit) string {
 	var parts []string
 	for _, sh := range a.Shares {
 		p := d.Name(sh.UserID) + " " + d.Money(sh.Amount)
@@ -111,5 +111,5 @@ func expenseText(d *groupData, a *store.ExpenseAudit) string {
 		parts = append(parts, p)
 	}
 	return fmt.Sprintf("%q, %s, %s paid %s, split %s: %s",
-		a.Description, a.SpentOn, d.Name(a.PayerID), d.Money(a.Amount), a.SplitType, strings.Join(parts, ", "))
+		a.Description, f.Day(a.SpentOn), d.Name(a.PayerID), d.Money(a.Amount), a.SplitType, strings.Join(parts, ", "))
 }

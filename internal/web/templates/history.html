@@ -8,7 +8,7 @@
   <tbody>
   {{range .Rows}}
   <tr>
-    <td class="muted small nowrap">{{datetime .At}}</td>
+    <td class="muted small nowrap">{{$.Stamp .At}}</td>
     <td><strong>{{.Actor}}</strong> {{.Summary}}
       {{range .Details}}<div class="muted small">{{.}}</div>{{end}}
     </td>
