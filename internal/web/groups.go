@@ -67,6 +67,9 @@ type groupData struct {
 	Settlements []settlementRow
 	Balances    []balanceRow
 	SettleUp    []paymentRow
+	MyBalance   int64        // the viewer's balance; positive means the group owes them
+	MyPays      []paymentRow // settle-up payments the viewer makes
+	MyGets      []paymentRow // settle-up payments the viewer receives
 }
 
 // Name returns a user's display name within the group.
@@ -112,9 +115,13 @@ func rankBalances(rows []balanceRow) {
 	}
 }
 
+// paymentRow is a suggested settle-up payment. GroupID and Decimals let the
+// mark_paid template build its form from the row alone.
 type paymentRow struct {
 	ledger.Payment
-	CanMark bool
+	CanMark  bool
+	GroupID  int64
+	Decimals int
 }
 
 func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error) {
@@ -150,9 +157,17 @@ func (s *Server) loadGroupData(r *http.Request, gc *groupCtx) (*groupData, error
 		}
 	}
 	rankBalances(d.Balances)
+	d.MyBalance = bal[gc.User.ID]
 	for _, p := range ledger.SettleUp(bal) {
 		canMark := writable && (p.From == gc.User.ID || p.To == gc.User.ID || gc.IsOwner())
-		d.SettleUp = append(d.SettleUp, paymentRow{p, canMark})
+		row := paymentRow{Payment: p, CanMark: canMark, GroupID: gc.Group.ID, Decimals: gc.Group.Decimals()}
+		d.SettleUp = append(d.SettleUp, row)
+		switch gc.User.ID {
+		case p.From:
+			d.MyPays = append(d.MyPays, row)
+		case p.To:
+			d.MyGets = append(d.MyGets, row)
+		}
 	}
 	return d, nil
 }
@@ -242,11 +257,12 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, gc *groupC
 		s.fail(w, r, err)
 		return
 	}
+	b := s.base(r, "Invite link")
 	s.render(w, http.StatusOK, "invite_created", inviteView{
-		base:      s.base(r, "Invite link"),
+		base:      b,
 		Group:     gc.Group,
 		URL:       s.baseURL.JoinPath("invite", token).String(), // #nosec G125 -- token is base64url from NewToken: no "/" or ".."
-		ExpiresAt: inv.ExpiresAt.Format("2 Jan 2006 15:04 MST"),
+		ExpiresAt: b.Stamp(inv.ExpiresAt),
 	})
 }
 
@@ -319,7 +335,7 @@ func (s *Server) historyPage(w http.ResponseWriter, r *http.Request, gc *groupCt
 	}
 	v := historyView{base: s.base(r, gc.Group.Name+" history"), groupData: d}
 	for _, e := range entries {
-		v.Rows = append(v.Rows, describe(d, e))
+		v.Rows = append(v.Rows, describe(d, v.timeFmt, e))
 	}
 	s.render(w, http.StatusOK, "history", v)
 }
