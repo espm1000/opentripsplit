@@ -124,6 +124,18 @@ func TestSimulator(t *testing.T) {
 	}
 }
 
+func TestAllowDataReset(t *testing.T) {
+	if c, _ := Load(env(map[string]string{})); c.AllowDataReset {
+		t.Error("data reset allowed by default")
+	}
+	if c, err := Load(env(map[string]string{"ALLOW_DATA_RESET": "true"})); err != nil || !c.AllowDataReset {
+		t.Errorf("ALLOW_DATA_RESET=true: AllowDataReset = %v, err = %v", c.AllowDataReset, err)
+	}
+	if _, err := Load(env(map[string]string{"ALLOW_DATA_RESET": "maybe"})); err == nil {
+		t.Error("bad ALLOW_DATA_RESET value accepted")
+	}
+}
+
 func TestTLS(t *testing.T) {
 	if c, _ := Load(env(map[string]string{})); c.TLS() {
 		t.Error("TLS on by default")

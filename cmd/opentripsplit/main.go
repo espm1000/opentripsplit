@@ -69,7 +69,7 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	// Providers come from env vars and/or the database (set up at /setup).
 	srv, err := web.New(ctx, st, a, web.Options{
 		BaseURL: cfg.BaseURL, InviteTTL: cfg.InviteTTL, EnvProviders: cfg.EnvProviders(),
-		DevLocalAuth: cfg.DevLocalAuth, Simulator: cfg.Simulator, Version: opentripsplit.Version(), Log: log,
+		DevLocalAuth: cfg.DevLocalAuth, Simulator: cfg.Simulator, AllowDataReset: cfg.AllowDataReset, Version: opentripsplit.Version(), Log: log,
 	})
 	if err != nil {
 		return err

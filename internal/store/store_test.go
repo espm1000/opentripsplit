@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -543,5 +544,93 @@ func TestClaimAdmin(t *testing.T) {
 	}
 	if ok, _ := s.ClaimAdmin(ctx, bo); !ok {
 		t.Fatal("bo couldn't claim after admin was deleted")
+	}
+}
+
+func TestResetData(t *testing.T) {
+	s, _ := newStore(t)
+	ctx := context.Background()
+	ana, bo, cy := newUser(t, s, "ana"), newUser(t, s, "bo"), newUser(t, s, "cy")
+	if ok, err := s.ClaimAdmin(ctx, ana); !ok || err != nil {
+		t.Fatalf("claim = %v, %v", ok, err)
+	}
+	g := groupWith(t, s, ana, bo, cy)
+	if _, err := s.CreateExpense(ctx, g, ana, equal(ana, 900, ana, bo, cy)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateSettlement(ctx, g, bo, bo, ana, 300); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteAccount(ctx, cy); err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range []int64{ana, bo} {
+		if err := s.CreateSession(ctx, hash(fmt.Sprint("session", u)), u, s.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.UpdateSettings(ctx, map[string]string{"oauth.github.client_id": "g1"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	count := func(q string) int {
+		t.Helper()
+		var n int
+		if err := s.db.QueryRow(q).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	all := func() map[string]int {
+		out := map[string]int{}
+		for _, tbl := range append(resetTables, "users", "identities", "sessions", "settings") {
+			out[tbl] = count(`SELECT COUNT(*) FROM ` + tbl)
+		}
+		return out
+	}
+
+	// Only the admin may be kept.
+	before := all()
+	if err := s.ResetData(ctx, bo); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("reset keeping non-admin err = %v", err)
+	}
+	if err := s.ResetData(ctx, cy); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("reset keeping deleted user err = %v", err)
+	}
+	if after := all(); fmt.Sprint(after) != fmt.Sprint(before) {
+		t.Fatalf("refused reset changed data: %v -> %v", before, after)
+	}
+
+	if err := s.ResetData(ctx, ana); err != nil {
+		t.Fatal(err)
+	}
+	for _, tbl := range resetTables {
+		if n := count(`SELECT COUNT(*) FROM ` + tbl); n != 0 {
+			t.Errorf("%s has %d rows after reset", tbl, n)
+		}
+	}
+	if n := count(`SELECT COUNT(*) FROM users`); n != 1 {
+		t.Errorf("users after reset = %d", n)
+	}
+	if u, err := s.User(ctx, ana); err != nil || !u.IsAdmin {
+		t.Fatalf("admin after reset = %+v, %v", u, err)
+	}
+	if ids, err := s.Identities(ctx, ana); err != nil || len(ids) != 1 {
+		t.Fatalf("admin identities after reset = %v, %v", ids, err)
+	}
+	if _, err := s.SessionUser(ctx, hash(fmt.Sprint("session", ana))); err != nil {
+		t.Fatalf("admin session after reset: %v", err)
+	}
+	if _, err := s.SessionUser(ctx, hash(fmt.Sprint("session", bo))); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("bo session after reset err = %v", err)
+	}
+	if got, _ := s.Settings(ctx); got["oauth.github.client_id"] != "g1" {
+		t.Fatalf("settings after reset = %v", got)
+	}
+	// The instance still works.
+	if _, err := s.CreateGroup(ctx, ana, "Fresh", "EUR"); err != nil {
+		t.Fatal(err)
+	}
+	if u, err := s.LoginIdentity(ctx, "github", "bo-id", "bo"); err != nil || u.IsAdmin {
+		t.Fatalf("new login after reset = %+v, %v", u, err)
 	}
 }

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -173,5 +174,72 @@ func TestUIProvidersLoadAtStartup(t *testing.T) {
 	}
 	if p := srv.auth.Provider("discord"); p == nil || p.Config.ClientID != "d1" {
 		t.Fatal("UI-configured provider not loaded at startup")
+	}
+}
+
+func TestAdminResetData(t *testing.T) {
+	allow := func(o *Options) { o.AllowDataReset = true }
+	e := newEnvWith(t, nil, allow)
+	admin := e.anon()
+	admin.mustPost("/setup", withToken(e.setupToken(), url.Values{"github_client_id": {"g1"}, "github_client_secret": {"s1"}}))
+	admin.loginAs("admin")
+	bo := e.login("bo")
+	g := admin.createGroup("Lisbon", "EUR")
+	bo.join(admin.invite(g))
+	bo.createGroup("Porto", "EUR")
+
+	if r := admin.get("/admin"); !strings.Contains(r.Body, `action="/admin/reset"`) {
+		t.Fatal("reset card missing with ALLOW_DATA_RESET on")
+	}
+	if r := bo.post("/admin/reset", url.Values{"confirm": {"RESET"}}); r.Status != http.StatusNotFound {
+		t.Fatalf("non-admin reset: %d", r.Status)
+	}
+	if r := admin.post("/admin/reset", url.Values{"confirm": {"reset"}}); r.Status != http.StatusBadRequest || !strings.Contains(r.Body, "Type RESET") {
+		t.Fatalf("wrong confirmation: %d", r.Status)
+	}
+	if r := admin.get("/groups"); !strings.Contains(r.Body, "Lisbon") {
+		t.Fatal("refused reset deleted data")
+	}
+
+	r := admin.post("/admin/reset", url.Values{"confirm": {"RESET"}})
+	if r.Status != http.StatusSeeOther || r.Location != "/admin?reset=1" {
+		t.Fatalf("reset: %d %s", r.Status, r.Location)
+	}
+	if !strings.Contains(e.logs.String(), "all data reset") {
+		t.Fatal("reset not logged")
+	}
+	if r := admin.get("/admin?reset=1"); r.Status != http.StatusOK || !strings.Contains(r.Body, "All data was reset") {
+		t.Fatalf("admin page after reset: %d", r.Status)
+	}
+	if r := admin.get("/groups"); r.Status != http.StatusOK || strings.Contains(r.Body, "Lisbon") || strings.Contains(r.Body, "Porto") {
+		t.Fatalf("groups after reset: %d", r.Status)
+	}
+	if _, err := bo.sessionUser(); err == nil {
+		t.Fatal("bo still logged in after reset")
+	}
+	if p := e.srv.auth.Provider("github"); p == nil || p.Config.ClientID != "g1" {
+		t.Fatal("login provider lost in reset")
+	}
+	// Bo can sign up again as a new, non-admin user.
+	bo.loginAs("bo")
+	if u, err := bo.sessionUser(); err != nil || u.IsAdmin {
+		t.Fatalf("bo after re-login = %+v, %v", u, err)
+	}
+}
+
+func TestAdminResetDataOffByDefault(t *testing.T) {
+	e := newEnv(t)
+	admin := e.anon()
+	admin.mustPost("/setup", withToken(e.setupToken(), nil))
+	admin.loginAs("admin")
+	g := admin.createGroup("Lisbon", "EUR")
+	if r := admin.get("/admin"); strings.Contains(r.Body, "/admin/reset") {
+		t.Fatal("reset card shown with ALLOW_DATA_RESET off")
+	}
+	if r := admin.post("/admin/reset", url.Values{"confirm": {"RESET"}}); r.Status != http.StatusNotFound {
+		t.Fatalf("reset with ALLOW_DATA_RESET off: %d", r.Status)
+	}
+	if r := admin.get(fmt.Sprintf("/groups/%d", g)); r.Status != http.StatusOK {
+		t.Fatalf("group gone after refused reset: %d", r.Status)
 	}
 }

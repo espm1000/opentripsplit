@@ -1,10 +1,22 @@
 {{define "content"}}
 <h1><img class="icon" src="/static/icons/key.svg" alt="">Admin</h1>
 {{if .Saved}}<p class="notice">Saved. Login providers are updated.</p>{{end}}
+{{if .Reset}}<p class="notice">All data was reset. Your admin account and login providers were kept.</p>{{end}}
 {{with .Error}}<p class="error">{{.}}</p>{{end}}
 <form method="post" action="/admin/providers" class="card form">
   <h2>Login providers</h2>
   {{template "provider_fields" .Providers}}
   <div class="actions"><button>Save</button></div>
 </form>
+{{if .AllowReset}}
+<section class="card danger-zone">
+  <h2>Reset all data</h2>
+  <p>Deletes every group, expense, payment, invite and history entry, and every account except yours. Everyone else is signed out. Your account, your logins and the login providers above are kept. This can't be undone.</p>
+  <p class="hint">Shown because ALLOW_DATA_RESET is on. Turn it off once you're done.</p>
+  <form method="post" action="/admin/reset" class="grid">
+    <label>Type RESET to confirm <input name="confirm" autocomplete="off" required></label>
+    <button class="danger">Reset all data</button>
+  </form>
+</section>
+{{end}}
 {{end}}

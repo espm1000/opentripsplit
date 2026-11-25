@@ -94,6 +94,7 @@ All settings come from environment variables:
 | `DEV_LOCAL_AUTH` | off | Password-less dev login with test users. Refused unless `BASE_URL` is localhost. Never in production. |
 | `DEBUG` | off | Debug logging, including every successful `/healthz` request (left out at the default info level). |
 | `SIMULATOR` | off | Public demo at `/simulator` that plays random trips through the split/balance math. Nothing is saved. |
+| `ALLOW_DATA_RESET` | off | Shows **Reset all data** on the Admin page. It deletes every group and every account except the admin's, and keeps the admin's login and the login providers. Use it to clear test data before launch, then turn it off. |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | | GitHub OAuth app (optional; can be set in the UI). |
 | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` | | Discord OAuth app (optional; can be set in the UI). |
 
