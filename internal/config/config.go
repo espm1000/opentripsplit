@@ -12,8 +12,13 @@ import (
 
 // Config is the server configuration.
 type Config struct {
-	BaseURL      *url.URL // public URL, e.g. https://split.example.com
-	ListenAddr   string
+	BaseURL    *url.URL // public URL, e.g. https://split.example.com
+	ListenAddr string
+	// TLSCertFile and TLSKeyFile (TLS_CERT_FILE, TLS_KEY_FILE) are PEM files.
+	// When set, the server speaks HTTPS on ListenAddr; otherwise plain HTTP,
+	// for running behind a TLS-terminating proxy or locally.
+	TLSCertFile  string
+	TLSKeyFile   string
 	DBPath       string
 	SessionTTL   time.Duration
 	InviteTTL    time.Duration
@@ -37,6 +42,9 @@ type Config struct {
 // Secure reports whether cookies should carry the Secure flag.
 func (c Config) Secure() bool { return c.BaseURL.Scheme == "https" }
 
+// TLS reports whether the server should serve HTTPS itself.
+func (c Config) TLS() bool { return c.TLSCertFile != "" }
+
 // CallbackURL is the OAuth redirect URL to register with a provider.
 func (c Config) CallbackURL(provider string) string {
 	return c.BaseURL.JoinPath("auth", provider, "callback").String() // #nosec G125 -- callers pass a fixed provider name (github, discord)
@@ -52,6 +60,8 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	c := Config{
 		ListenAddr:   get("LISTEN_ADDR", ":8080"),
+		TLSCertFile:  get("TLS_CERT_FILE", ""),
+		TLSKeyFile:   get("TLS_KEY_FILE", ""),
 		DBPath:       get("DB_PATH", "opentripsplit.db"),
 		GitHubID:     get("GITHUB_CLIENT_ID", ""),
 		GitHubSecret: get("GITHUB_CLIENT_SECRET", ""),
@@ -98,6 +108,9 @@ func Load(getenv func(string) string) (Config, error) {
 	c.Simulator = flag("SIMULATOR")
 	c.Debug = flag("DEBUG")
 
+	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
+		errs = append(errs, errors.New("set both TLS_CERT_FILE and TLS_KEY_FILE, or neither"))
+	}
 	if (c.GitHubID == "") != (c.GitHubSecret == "") {
 		errs = append(errs, errors.New("set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, or neither"))
 	}

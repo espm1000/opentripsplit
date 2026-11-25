@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -76,8 +78,12 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	}
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
-		errc <- hs.ListenAndServeTLS("certs/server.crt", "certs/server.key")
+		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "tls", cfg.TLS(), "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
+		if cfg.TLS() {
+			errc <- hs.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		} else {
+			errc <- hs.ListenAndServe()
+		}
 	}()
 	select {
 	case err := <-errc:
@@ -112,7 +118,8 @@ func purgeSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
 }
 
 // healthcheck is for container HEALTHCHECK: distroless images have no shell
-// or curl, so the binary checks itself.
+// or curl, so the binary checks itself. It uses HTTPS when TLS_CERT_FILE is
+// set, like the server.
 //
 // #nosec G704 -- not SSRF: the URL is fixed loopback, only the port comes from LISTEN_ADDR.
 func healthcheck() int {
@@ -125,8 +132,15 @@ func healthcheck() int {
 		fmt.Fprintln(os.Stderr, "bad LISTEN_ADDR:", err)
 		return 1
 	}
+	scheme := "http"
 	c := &http.Client{Timeout: 3 * time.Second}
-	resp, err := c.Get("http://" + net.JoinHostPort("127.0.0.1", port) + "/healthz")
+	if strings.TrimSpace(os.Getenv("TLS_CERT_FILE")) != "" {
+		scheme = "https"
+		// The certificate names the public host, not 127.0.0.1, and this only
+		// checks that our own process answers on loopback.
+		c.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // #nosec G402 -- loopback self-check, see above
+	}
+	resp, err := c.Get(scheme + "://" + net.JoinHostPort("127.0.0.1", port) + "/healthz")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
