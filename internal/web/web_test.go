@@ -841,6 +841,21 @@ func TestFooterVersion(t *testing.T) {
 	}
 }
 
+func TestBetaLabel(t *testing.T) {
+	e := newEnv(t)
+	const want = `<span class="badge beta" title="Still being worked on">Beta</span>`
+	// The label sits in the header for everyone, logged in or not.
+	for name, r := range map[string]result{
+		"login":  e.anon().get("/login"),
+		"groups": e.login("ana").get("/groups"),
+	} {
+		header := r.Body[strings.Index(r.Body, "<header"):strings.Index(r.Body, "</header>")]
+		if !strings.Contains(header, want) {
+			t.Errorf("%s page header lacks the beta label:\n%s", name, header)
+		}
+	}
+}
+
 func TestHealthzLogLevel(t *testing.T) {
 	var buf strings.Builder
 	s := &Server{log: slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))}
