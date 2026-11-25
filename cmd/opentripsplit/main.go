@@ -77,7 +77,7 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	errc := make(chan error, 1)
 	go func() {
 		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
-		errc <- hs.ListenAndServe()
+		errc <- hs.ListenAndServeTLS("certs/server.crt", "certs/server.key")
 	}()
 	select {
 	case err := <-errc:
