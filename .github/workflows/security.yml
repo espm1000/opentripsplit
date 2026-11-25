@@ -1,9 +1,6 @@
 name: Security Scans
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     paths-ignore:
       - '.github/workflows/**'
