@@ -15,8 +15,9 @@ type Config struct {
 	BaseURL    *url.URL // public URL, e.g. https://split.example.com
 	ListenAddr string
 	// TLSCertFile and TLSKeyFile (TLS_CERT_FILE, TLS_KEY_FILE) are PEM files.
-	// When set, the server speaks HTTPS on ListenAddr; otherwise plain HTTP,
-	// for running behind a TLS-terminating proxy or locally.
+	// When set, the server speaks HTTPS on ListenAddr and BASE_URL must be
+	// https; otherwise plain HTTP, for running behind a TLS-terminating proxy
+	// or locally.
 	TLSCertFile  string
 	TLSKeyFile   string
 	DBPath       string
@@ -110,6 +111,11 @@ func Load(getenv func(string) string) (Config, error) {
 
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		errs = append(errs, errors.New("set both TLS_CERT_FILE and TLS_KEY_FILE, or neither"))
+	}
+	// Cookies only get the Secure flag, and links only use https, when
+	// BASE_URL says so.
+	if c.TLSCertFile != "" && c.BaseURL != nil && c.BaseURL.Scheme != "https" {
+		errs = append(errs, errors.New("BASE_URL must be an https URL when TLS_CERT_FILE and TLS_KEY_FILE are set"))
 	}
 	if (c.GitHubID == "") != (c.GitHubSecret == "") {
 		errs = append(errs, errors.New("set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET, or neither"))

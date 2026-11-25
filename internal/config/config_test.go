@@ -59,6 +59,7 @@ func TestLoadErrors(t *testing.T) {
 		"bad ttl":           {"SESSION_TTL": "forever", "GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s"},
 		"cert without key":  {"TLS_CERT_FILE": "/etc/tls/server.crt"},
 		"key without cert":  {"TLS_KEY_FILE": "/etc/tls/server.key"},
+		"tls with http url": {"TLS_CERT_FILE": "/etc/tls/server.crt", "TLS_KEY_FILE": "/etc/tls/server.key"},
 	}
 	for name, m := range tests {
 		if _, err := Load(env(m)); err == nil {
@@ -127,7 +128,9 @@ func TestTLS(t *testing.T) {
 	if c, _ := Load(env(map[string]string{})); c.TLS() {
 		t.Error("TLS on by default")
 	}
-	c, err := Load(env(map[string]string{"TLS_CERT_FILE": "/etc/tls/server.crt", "TLS_KEY_FILE": "/etc/tls/server.key"}))
+	c, err := Load(env(map[string]string{
+		"BASE_URL": "https://split.example.com", "TLS_CERT_FILE": "/etc/tls/server.crt", "TLS_KEY_FILE": "/etc/tls/server.key",
+	}))
 	if err != nil || !c.TLS() || c.TLSCertFile != "/etc/tls/server.crt" || c.TLSKeyFile != "/etc/tls/server.key" {
 		t.Errorf("TLS = %v, config = %+v, err = %v", c.TLS(), c, err)
 	}

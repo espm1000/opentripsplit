@@ -46,6 +46,16 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	if cfg.Debug {
 		level.Set(slog.LevelDebug)
 	}
+	// Load the certificate before anything else starts, so a bad path or a
+	// mismatched key fails with a clear error instead of after "listening".
+	var tlsCfg *tls.Config
+	if cfg.TLS() {
+		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			return fmt.Errorf("load TLS certificate: %w", err)
+		}
+		tlsCfg = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -75,12 +85,16 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    64 << 10,
+		TLSConfig:         tlsCfg,
+		// The server's own errors, such as TLS handshake failures, go through
+		// slog like everything else instead of the standard log package.
+		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
 	errc := make(chan error, 1)
 	go func() {
 		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "tls", cfg.TLS(), "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
-		if cfg.TLS() {
-			errc <- hs.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if tlsCfg != nil {
+			errc <- hs.ListenAndServeTLS("", "") // certificate is in hs.TLSConfig
 		} else {
 			errc <- hs.ListenAndServe()
 		}

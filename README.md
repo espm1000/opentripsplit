@@ -87,7 +87,7 @@ All settings come from environment variables:
 |---|---|---|
 | `BASE_URL` | `http://localhost:8080` | Public URL of the app. With `https`, cookies get the `Secure` flag. |
 | `LISTEN_ADDR` | `:8080` | Address to listen on. |
-| `TLS_CERT_FILE`, `TLS_KEY_FILE` | | PEM certificate (with any intermediates) and key. When set, the server speaks HTTPS instead of HTTP. Set both or neither. |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE` | | PEM certificate (with any intermediates) and key. When set, the server speaks HTTPS instead of HTTP, and `BASE_URL` must be `https`. Set both or neither. |
 | `DB_PATH` | `opentripsplit.db` | SQLite database file. |
 | `SESSION_TTL` | `720h` | How long a login lasts. |
 | `INVITE_TTL` | `168h` | How long invite links stay valid. |
@@ -133,7 +133,7 @@ split.example.com {
 
 ### Serving HTTPS directly
 
-Set `TLS_CERT_FILE` and `TLS_KEY_FILE` to serve HTTPS on `LISTEN_ADDR` (with HTTP/2) instead of plain HTTP, for example to encrypt the hop from a proxy to the app or to run without a proxy. The files are read once at startup, so restart after renewing the certificate. `opentripsplit healthcheck` switches to HTTPS when `TLS_CERT_FILE` is set. Plain HTTP requests to a TLS port get a `400`, so a proxy in front must connect with TLS too.
+Set `TLS_CERT_FILE` and `TLS_KEY_FILE` to serve HTTPS on `LISTEN_ADDR` (with HTTP/2) instead of plain HTTP, for example to encrypt the hop from a proxy to the app or to run without a proxy. `BASE_URL` must then be an `https` URL. The server refuses to start if the files can't be loaded. They are read once at startup, so restart after renewing the certificate. `opentripsplit healthcheck` switches to HTTPS when `TLS_CERT_FILE` is set. Plain HTTP requests to a TLS port get a `400`, so a proxy in front must connect with TLS too.
 
 ### Backups
 
