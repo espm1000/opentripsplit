@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/espm1000/opentripsplit/compare/v0.5.0...v0.6.0) (2026-11-25)
+
+
+### Features
+
+* **tls:** add https support ([be461c1](https://github.com/espm1000/opentripsplit/commit/be461c1ae98db9763a97b0bc267bd9165b7898c7))
+* **tls:** serve HTTPS when TLS_CERT_FILE and TLS_KEY_FILE are set ([1d5a94e](https://github.com/espm1000/opentripsplit/commit/1d5a94ea264cea025d546f679e4a4c8c50a27cfb))
+* **web:** add https ([58dc5ab](https://github.com/espm1000/opentripsplit/commit/58dc5abc1a9d6c5e424e5a6281c7e5db10f686c7))
+
+
+### Bug Fixes
+
+* **logging:** add logging for tls issues ([e3c81da](https://github.com/espm1000/opentripsplit/commit/e3c81dacfbbfdc1d4b1ae52ee3f9a400581202c7))
+
 ## [0.5.0](https://github.com/espm1000/opentripsplit/compare/v0.4.0...v0.5.0) (2026-11-23)
 
 
