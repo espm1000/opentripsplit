@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/espm1000/opentripsplit/compare/v0.7.0...v0.7.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **tests:** add test for beta label ([cccacc0](https://github.com/espm1000/opentripsplit/commit/cccacc0891eae8b702ed5d55739fb423a79c2567))
+* **web:** add beta label ([df26807](https://github.com/espm1000/opentripsplit/commit/df268075a77506d3f33d76636534d8d5fff15c32))
+
 ## [0.7.0](https://github.com/espm1000/opentripsplit/compare/v0.6.0...v0.7.0) (2026-11-25)
 
 
