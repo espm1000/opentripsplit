@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,6 +46,16 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 	if cfg.Debug {
 		level.Set(slog.LevelDebug)
 	}
+	// Load the certificate before anything else starts, so a bad path or a
+	// mismatched key fails with a clear error instead of after "listening".
+	var tlsCfg *tls.Config
+	if cfg.TLS() {
+		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			return fmt.Errorf("load TLS certificate: %w", err)
+		}
+		tlsCfg = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -73,11 +85,19 @@ func run(log *slog.Logger, level *slog.LevelVar) error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    64 << 10,
+		TLSConfig:         tlsCfg,
+		// The server's own errors, such as TLS handshake failures, go through
+		// slog like everything else instead of the standard log package.
+		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
-		errc <- hs.ListenAndServe()
+		log.Info("listening", "version", opentripsplit.Version(), "addr", cfg.ListenAddr, "tls", cfg.TLS(), "base_url", cfg.BaseURL.String(), "db", cfg.DBPath)
+		if tlsCfg != nil {
+			errc <- hs.ListenAndServeTLS("", "") // certificate is in hs.TLSConfig
+		} else {
+			errc <- hs.ListenAndServe()
+		}
 	}()
 	select {
 	case err := <-errc:
@@ -112,7 +132,8 @@ func purgeSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
 }
 
 // healthcheck is for container HEALTHCHECK: distroless images have no shell
-// or curl, so the binary checks itself.
+// or curl, so the binary checks itself. It uses HTTPS when TLS_CERT_FILE is
+// set, like the server.
 //
 // #nosec G704 -- not SSRF: the URL is fixed loopback, only the port comes from LISTEN_ADDR.
 func healthcheck() int {
@@ -125,8 +146,15 @@ func healthcheck() int {
 		fmt.Fprintln(os.Stderr, "bad LISTEN_ADDR:", err)
 		return 1
 	}
+	scheme := "http"
 	c := &http.Client{Timeout: 3 * time.Second}
-	resp, err := c.Get("http://" + net.JoinHostPort("127.0.0.1", port) + "/healthz")
+	if strings.TrimSpace(os.Getenv("TLS_CERT_FILE")) != "" {
+		scheme = "https"
+		// The certificate names the public host, not 127.0.0.1, and this only
+		// checks that our own process answers on loopback.
+		c.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // #nosec G402 -- loopback self-check, see above
+	}
+	resp, err := c.Get(scheme + "://" + net.JoinHostPort("127.0.0.1", port) + "/healthz")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
