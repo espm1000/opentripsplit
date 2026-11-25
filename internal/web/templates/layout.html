@@ -17,7 +17,7 @@
 {{if .DevAuth}}<div class="dev-banner">Dev login is on (DEV_LOCAL_AUTH). Never enable it in production.</div>{{end}}
 <header class="top">
   <nav aria-label="Main">
-    <a class="brand" href="/"><img class="icon" src="/static/icons/logo.svg" alt="">OpenTripSplit</a>
+    <a class="brand" href="/"><img class="icon" src="/static/icons/logo.svg" alt="">OpenTripSplit<span class="badge beta" title="Still being worked on">Beta</span></a>
     {{if .Sim}}<a href="/simulator">Simulator</a>{{end}}
     {{with .User}}
     <a href="/groups">Groups</a>
