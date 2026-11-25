@@ -148,9 +148,11 @@ func (s *Server) claimAdmin(w http.ResponseWriter, r *http.Request, u store.User
 
 type setupView struct {
 	base
-	Providers []providerState
-	Error     string
-	Saved     bool
+	Providers  []providerState
+	Error      string
+	Saved      bool
+	AllowReset bool // show the "Reset all data" card (admin page only)
+	Reset      bool // the reset just ran
 }
 
 func (s *Server) renderSetup(w http.ResponseWriter, r *http.Request, page string, status int, errMsg string) {
@@ -165,6 +167,7 @@ func (s *Server) renderSetup(w http.ResponseWriter, r *http.Request, page string
 	}
 	s.render(w, status, page, setupView{
 		base: s.base(r, title), Providers: states, Error: errMsg, Saved: r.URL.Query().Get("saved") == "1",
+		AllowReset: page == "admin" && s.allowReset, Reset: page == "admin" && r.URL.Query().Get("reset") == "1",
 	})
 }
 
@@ -223,6 +226,26 @@ func (s *Server) saveAdminProviders(w http.ResponseWriter, r *http.Request, _ st
 	if s.saveProviders(w, r, "admin") {
 		http.Redirect(w, r, "/admin?saved=1", http.StatusSeeOther)
 	}
+}
+
+// resetData wipes every group and every user except the admin, for
+// starting fresh before launch. It only exists while ALLOW_DATA_RESET is
+// on; otherwise it 404s like any unknown page.
+func (s *Server) resetData(w http.ResponseWriter, r *http.Request, u store.User) {
+	if !s.allowReset {
+		s.errorPage(w, r, http.StatusNotFound, "Page not found.")
+		return
+	}
+	if strings.TrimSpace(r.PostFormValue("confirm")) != "RESET" {
+		s.renderSetup(w, r, "admin", http.StatusBadRequest, "Type RESET to confirm.")
+		return
+	}
+	if err := s.store.ResetData(r.Context(), u.ID); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	s.log.Warn("all data reset", "user_id", u.ID)
+	http.Redirect(w, r, "/admin?reset=1", http.StatusSeeOther)
 }
 
 // saveProviders stores the provider credentials from the form and reloads

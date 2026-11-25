@@ -39,6 +39,9 @@ type Options struct {
 	DevLocalAuth bool
 	// Simulator turns on the public demo at /simulator (see simulator.go).
 	Simulator bool
+	// AllowDataReset shows "Reset all data" on the admin page (see
+	// resetData in setup.go).
+	AllowDataReset bool
 	// Version is shown in the footer to logged-in users only, so anonymous
 	// visitors can't tell which release (and which known bugs) an instance
 	// runs.
@@ -55,6 +58,7 @@ type Server struct {
 	envProviders map[string]config.OAuthCreds
 	devAuth      bool
 	simulator    bool
+	allowReset   bool
 	version      string
 	log          *slog.Logger
 	pages        map[string]*template.Template
@@ -71,7 +75,7 @@ type Server struct {
 func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server, error) {
 	s := &Server{
 		store: st, auth: a, baseURL: o.BaseURL, inviteTTL: o.InviteTTL,
-		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, version: o.Version, log: o.Log, pages: map[string]*template.Template{},
+		envProviders: o.EnvProviders, devAuth: o.DevLocalAuth, simulator: o.Simulator, allowReset: o.AllowDataReset, version: o.Version, log: o.Log, pages: map[string]*template.Template{},
 	}
 	funcs := template.FuncMap{
 		"amount":  ledger.FormatAmount,
@@ -103,6 +107,9 @@ func New(ctx context.Context, st *store.Store, a *auth.Auth, o Options) (*Server
 	}
 	if s.simulator {
 		s.log.Info("simulator is on at /simulator")
+	}
+	if s.allowReset {
+		s.log.Warn("ALLOW_DATA_RESET is on: the admin can wipe every group and user from the Admin page. Turn it off once you're done.")
 	}
 	if err := s.announceSetup(ctx); err != nil {
 		return nil, err
@@ -140,6 +147,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /setup", s.saveSetup)
 	mux.Handle("GET /admin", s.admin(s.adminPage))
 	mux.Handle("POST /admin/providers", s.admin(s.saveAdminProviders))
+	mux.Handle("POST /admin/reset", s.admin(s.resetData))
 
 	mux.Handle("GET /account", s.user(s.accountPage))
 	mux.Handle("POST /account/name", s.user(s.renameAccount))

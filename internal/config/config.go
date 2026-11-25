@@ -35,6 +35,11 @@ type Config struct {
 	// Simulator turns on the public demo at /simulator (SIMULATOR). It
 	// replays random trips through the ledger math and saves nothing.
 	Simulator bool
+	// AllowDataReset shows "Reset all data" on the admin page
+	// (ALLOW_DATA_RESET). It wipes every group and user except the admin.
+	// Meant for clearing test data before launch: turn it on, reset, and
+	// turn it off again.
+	AllowDataReset bool
 	// Debug turns on debug logging (DEBUG), including every successful
 	// /healthz request.
 	Debug bool
@@ -107,6 +112,7 @@ func Load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("DEV_LOCAL_AUTH is only allowed when BASE_URL is localhost, 127.0.0.1 or [::1]; never enable it in production"))
 	}
 	c.Simulator = flag("SIMULATOR")
+	c.AllowDataReset = flag("ALLOW_DATA_RESET")
 	c.Debug = flag("DEBUG")
 
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
