@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/espm1000/opentripsplit/compare/v0.6.0...v0.7.0) (2026-11-25)
+
+
+### Features
+
+* **admin:** add gated reset of all data ([5f6517d](https://github.com/espm1000/opentripsplit/commit/5f6517dcb617c569d0fa767c06cea52eaacfd7fe))
+
 ## [0.6.0](https://github.com/espm1000/opentripsplit/compare/v0.5.0...v0.6.0) (2026-11-25)
 
 
