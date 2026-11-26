@@ -14,6 +14,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    if: &not-release-please ${{ !startsWith(github.head_ref, 'release-please--') && !contains(github.event.head_commit.message, '/release-please--') }}
+    permissions:
+      contents: read
+    steps:
+      # The action's own checkout keeps the token on disk, so check out here
+      # without it and turn the action's checkout off.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          repo-checkout: false
+          go-version-file: 'go.mod'
+          cache: false
+
   golangci-lint:
     runs-on: ubuntu-latest
     permissions:
@@ -38,7 +57,7 @@ jobs:
           install-mode: goinstall
           skip-cache: true
 
-  test:
+  go-tests:
     runs-on: ubuntu-latest
     permissions:
       contents: read

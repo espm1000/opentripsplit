@@ -23,26 +23,9 @@
           ]
       },
       {
-          // Handled by the SecObserve custom manager below instead.
-          "matchManagers": ["github-actions"],
-          "matchPackageNames": ["SecObserve/secobserve_actions_templates"],
-          "enabled": false
-      },
-      {
           "matchDatasources": ["pypi"],
           "matchManagers": ["pip_requirements"],
           "groupName": "Python-pip Dependencies"
       }
-  ],
-  "customManagers": [
-    {
-        "customType": "regex",
-        "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
-        "matchStrings": [
-            "uses:\\s*(?<depName>SecObserve/secobserve_actions_templates)/[^@\\s]+@(?<currentDigest>[a-f0-9]{40})\\s+#\\s*(?<currentValue>v\\d{4}_\\d{2}(?:_\\d+)?)"
-        ],
-        "datasourceTemplate": "github-tags",
-        "versioningTemplate": "regex:^v(?<major>\\d{4})_(?<minor>\\d{2})(?:_(?<patch>\\d+))?$"
-    }
   ]
 }

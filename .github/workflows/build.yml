@@ -5,15 +5,24 @@ name: Build
 # GHCR in three cases:
 #   - workflow_dispatch with "push" ticked: tagged with the short commit SHA.
 #   - workflow_dispatch with "skip_security" ticked: the same, but without the
-#     SBOM, the image scan or the SecObserve uploads. The smoke test still runs.
+#     SBOMs or the scans. The smoke test still runs.
 #   - workflow_call from release.yml after release-please creates a release:
 #     tagged X.Y.Z, X.Y and latest (pre-releases get only X.Y.Z).
 # The pushed image is the exact one that was scanned (unless the scan was
 # skipped): the build job saves it and the publish job loads and pushes it,
 # without rebuilding.
+#
+# Both the image and the repository get a CycloneDX SBOM, uploaded as a run
+# artifact and scanned with Grype. The Grype results go to GitHub code scanning
+# as SARIF. The weekly run builds and scans the image from main (it doesn't
+# rescan the image published to GHCR), so code scanning has a default-branch
+# baseline to compare pull requests against, and new CVEs in dependencies that
+# haven't changed still raise alerts between releases.
 
 on:
   pull_request:
+  schedule:
+    - cron: '43 4 * * 2'
   workflow_dispatch:
     inputs:
       push:
@@ -40,16 +49,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # Unique per run, in case runners share a Docker daemon.
   LOCAL_IMAGE: opentripsplit:ci-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   build:
     name: Build and scan
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
+      security-events: write
     outputs:
       push: ${{ steps.tags.outputs.push }}
       tags: ${{ steps.tags.outputs.tags }}
@@ -148,7 +157,7 @@ jobs:
           docker logs "$name"
           exit 1
 
-      # The four security steps below are skipped when SKIP_SCANS is true
+      # The three security steps below are skipped when SKIP_SCANS is true
       # (see the job's env).
       - name: Generate image SBOM
         if: ${{ env.SKIP_SCANS != 'true' }}
@@ -159,18 +168,8 @@ jobs:
           output-file: opentripsplit_image.json
           artifact-name: opentripsplit_image.json
 
-      # The file names differ from security.yml's, so SecObserve keeps the
-      # image findings and the repository findings apart.
-      - name: Send SBOM to SecObserve
-        if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('opentripsplit_image.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_sbom@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
-        with:
-          so_api_token: ${{ secrets.SO_API_TOKEN }}
-          so_file_name: opentripsplit_image.json
-          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
-          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
-          so_branch_name: ${{ github.head_ref || github.ref_name }}
-
+      # Fails the job on a high or critical finding, which stops the image
+      # from being pushed. Grype still writes the SARIF first.
       - name: Scan image SBOM
         if: ${{ env.SKIP_SCANS != 'true' }}
         uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
@@ -178,18 +177,18 @@ jobs:
           sbom: opentripsplit_image.json
           fail-build: true
           severity-cutoff: high
-          output-format: cyclonedx-json
-          output-file: grype_results.json
+          output-format: sarif
+          output-file: grype_image.sarif
 
-      - name: Send Grype results to SecObserve
-        if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('grype_results.json') != '' }}
-        uses: SecObserve/secobserve_actions_templates/actions/upload_observations@e1d37e1488c479465b7853ad88bb2c12441a06c6 # v2026_11
+      # Runs after a failed scan too, so the findings that failed it show up
+      # in code scanning. The category keeps these apart from the repository
+      # scan's results.
+      - name: Upload image scan to code scanning
+        if: ${{ env.SKIP_SCANS != 'true' && !cancelled() && hashFiles('grype_image.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
-          so_api_token: ${{ secrets.SO_API_TOKEN }}
-          so_file_name: grype_results.json
-          so_product_name: ${{ vars.SO_PRODUCT_NAME }}
-          so_api_base_url: ${{ secrets.SO_API_BASE_URL }}
-          so_branch_name: ${{ github.head_ref || github.ref_name }}
+          sarif_file: grype_image.sarif
+          category: grype-image
 
       - name: Save image for publishing
         if: steps.tags.outputs.push == 'true'
@@ -207,11 +206,53 @@ jobs:
         if: always()
         run: docker image rm --force "$LOCAL_IMAGE" || true
 
+  # Replaces security.yml's sbom-and-grype job. Dependabot alerts already
+  # watch go.mod, but this keeps a repository SBOM as a run artifact and
+  # covers anything Syft finds that Dependabot doesn't. Skipped in the same
+  # cases as the build job's scans. It doesn't gate the publish job.
+  repo-sbom:
+    name: Repository SBOM and scan
+    if: ${{ !inputs.skip_security && !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Generate repository SBOM
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: opentripsplit.json
+          artifact-name: opentripsplit.json
+
+      - name: Scan repository SBOM
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
+        with:
+          sbom: opentripsplit.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+          output-file: grype_repo.sarif
+
+      - name: Upload repository scan to code scanning
+        if: ${{ !cancelled() && hashFiles('grype_repo.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          sarif_file: grype_repo.sarif
+          category: grype-repo
+
   publish:
     name: Push to GHCR
     needs: build
     if: needs.build.outputs.push == 'true'
-    runs-on: k3s-runners-ots
+    runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:
