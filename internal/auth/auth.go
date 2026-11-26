@@ -286,7 +286,8 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 	if a.OnLogin != nil {
 		a.OnLogin(w, r, u)
 	}
-	next := f.Next
+	// Login checked Next, but the flow cookie is unsigned: check it again.
+	next := SafeNext(f.Next)
 	if next == "" {
 		next = "/groups"
 	}
