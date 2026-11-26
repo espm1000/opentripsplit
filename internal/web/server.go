@@ -19,6 +19,7 @@ import (
 	"github.com/espm1000/opentripsplit/internal/auth"
 	"github.com/espm1000/opentripsplit/internal/config"
 	"github.com/espm1000/opentripsplit/internal/ledger"
+	"github.com/espm1000/opentripsplit/internal/logsafe"
 	"github.com/espm1000/opentripsplit/internal/store"
 )
 
@@ -237,7 +238,7 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		if path == "/healthz" && sw.status == http.StatusOK {
 			level = slog.LevelDebug
 		}
-		s.log.Log(r.Context(), level, "request", "method", r.Method, "path", path, "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
+		s.log.Log(r.Context(), level, "request", "method", logsafe.String(r.Method), "path", logsafe.String(path), "status", sw.status, "dur", time.Since(start).Round(time.Microsecond))
 	})
 }
 

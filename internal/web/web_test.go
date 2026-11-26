@@ -500,6 +500,40 @@ func TestNextCantLeaveSite(t *testing.T) {
 	if resp := c.follow("/auth/github/login?next=" + url.QueryEscape(evil)); resp.Request.URL.Path != "/groups" {
 		t.Errorf("OAuth login with next=%s ended at %s", evil, resp.Request.URL)
 	}
+	// A flow cookie edited to carry a bad next. Login checked next, but the
+	// cookie is unsigned, so the callback has to check it again.
+	forged := e.anon()
+	r := forged.get("/auth/github/login")
+	authURL, _ := url.Parse(e.ts.URL + "/auth/")
+	var ck *http.Cookie
+	for _, k := range forged.http.Jar.Cookies(authURL) {
+		if k.Name == "ots_oauth" {
+			ck = k
+		}
+	}
+	if ck == nil {
+		t.Fatal("no flow cookie after /auth/github/login")
+	}
+	var f map[string]any
+	if b, err := base64.RawURLEncoding.DecodeString(ck.Value); err != nil || json.Unmarshal(b, &f) != nil {
+		t.Fatalf("decode flow cookie %q", ck.Value)
+	}
+	f["n"] = evil
+	b, _ := json.Marshal(f)
+	forged.http.Jar.SetCookies(authURL, []*http.Cookie{{Name: "ots_oauth", Value: base64.RawURLEncoding.EncodeToString(b), Path: "/auth/"}})
+	toCallback, err := forged.http.Get(r.Location) // the fake provider redirects back with a code
+	if err != nil {
+		t.Fatal(err)
+	}
+	toCallback.Body.Close()
+	done, err := forged.http.Get(toCallback.Header.Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	done.Body.Close()
+	if loc := done.Header.Get("Location"); done.StatusCode != http.StatusSeeOther || loc != "/groups" {
+		t.Errorf("OAuth callback with flow cookie next=%s: %d %s", evil, done.StatusCode, loc)
+	}
 	// A logged-in visit to /login.
 	if r := c.get("/login?next=" + url.QueryEscape(evil)); r.Status != http.StatusSeeOther || r.Location != "/groups" {
 		t.Errorf("logged-in /login with next=%s: %d %s", evil, r.Status, r.Location)
@@ -838,6 +872,21 @@ func TestFooterVersion(t *testing.T) {
 	}
 	if r := e.login("ana").get("/groups"); !strings.Contains(r.Body, want) {
 		t.Errorf("groups page footer lacks the version:\n%s", r.Body)
+	}
+}
+
+func TestBetaLabel(t *testing.T) {
+	e := newEnv(t)
+	const want = `<span class="badge beta" title="Still being worked on">Beta</span>`
+	// The label sits in the header for everyone, logged in or not.
+	for name, r := range map[string]result{
+		"login":  e.anon().get("/login"),
+		"groups": e.login("ana").get("/groups"),
+	} {
+		header := r.Body[strings.Index(r.Body, "<header"):strings.Index(r.Body, "</header>")]
+		if !strings.Contains(header, want) {
+			t.Errorf("%s page header lacks the beta label:\n%s", name, header)
+		}
 	}
 }
 
