@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.2](https://github.com/espm1000/opentripsplit/compare/v0.7.1...v0.7.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **auth:** ensure callback runs safenext before redirecting after oauth ([c921a47](https://github.com/espm1000/opentripsplit/commit/c921a478f8c0b7c0ffa6ecd31af38d2b40b63499))
+* **logging:** protect against large input ([ec48f51](https://github.com/espm1000/opentripsplit/commit/ec48f51b25d3109cb65b9886cfaf73ac41d1ca1a))
+* re-check OAuth redirect target and cap logged request values ([ea8acf6](https://github.com/espm1000/opentripsplit/commit/ea8acf6dd5314b68963576a73e6402fbb010198b))
+
 ## [0.7.1](https://github.com/espm1000/opentripsplit/compare/v0.7.0...v0.7.1) (2026-11-25)
 
 
