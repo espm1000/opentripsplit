@@ -14,9 +14,10 @@ name: Build
 #
 # Both the image and the repository get a CycloneDX SBOM, uploaded as a run
 # artifact and scanned with Grype. The Grype results go to GitHub code scanning
-# as SARIF. The weekly run scans main, so code scanning has a default-branch
-# baseline to compare pull requests against, and so new CVEs in unchanged
-# dependencies still raise alerts between releases.
+# as SARIF. The weekly run builds and scans the image from main (it doesn't
+# rescan the image published to GHCR), so code scanning has a default-branch
+# baseline to compare pull requests against, and new CVEs in dependencies that
+# haven't changed still raise alerts between releases.
 
 on:
   pull_request:
