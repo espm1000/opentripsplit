@@ -17,6 +17,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/espm1000/opentripsplit/internal/logsafe"
 	"github.com/espm1000/opentripsplit/internal/store"
 )
 
@@ -239,7 +240,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		// Never log code or state. error shows misconfiguration such as
 		// redirect_uri_mismatch, or the user pressing cancel (access_denied).
 		a.Log.Warn("oauth callback: provider returned no code", "provider", p.Name,
-			"error", q.Get("error"), "error_description", q.Get("error_description"))
+			"error", logsafe.String(q.Get("error")), "error_description", logsafe.String(q.Get("error_description")))
 		a.fail(w, r, http.StatusBadRequest, "Login was cancelled.")
 		return
 	}
