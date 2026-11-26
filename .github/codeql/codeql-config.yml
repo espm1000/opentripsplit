@@ -1,0 +1,6 @@
+name: CodeQL config
+
+# Third-party minified bundles vendored into the web UI. Scanning them only
+# produces noise about code we don't maintain.
+paths-ignore:
+  - internal/web/static/*.min.js
